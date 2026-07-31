@@ -33,14 +33,15 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # 5. Memulihkan (Restore) semua library NuGet yang dibutuhkan UABEAvalonia
+    # 5. Memulihkan (Restore) semua library
     - name: Restore Dependencies
-      run: dotnet restore UABEAvalonia.Android/UABEAvalonia.Android.csproj
+      run: dotnet restore UABEAvalonia/UABEAvalonia.Android/UABEAvalonia.Android.csproj
 
-    # 6. Kompilasi Kode Menjadi APK (Release Mode)
+    # 6. Kompilasi Kode Menjadi APK
     - name: Compile APK
       run: |
-        dotnet publish UABEAvalonia.Android/UABEAvalonia.Android.csproj -c Release -f net8.0-android --no-restore
+        dotnet publish UABEAvalonia/UABEAvalonia.Android/UABEAvalonia.Android.csproj -c Release -f net8.0-android --no-restore
+        
 
     # 7. Mengunggah hasil APK ke halaman GitHub Actions agar bisa Anda unduh
     - name: Upload APK Artifact
