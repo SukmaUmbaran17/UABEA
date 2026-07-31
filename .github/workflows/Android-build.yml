@@ -1,0 +1,50 @@
+name: Build UABE Android APK
+
+on:
+  push:
+    branches: [ "main" ] # Memicu build otomatis saat push ke branch main
+  workflow_dispatch:     # Memunculkan tombol manual "Run workflow" di web GitHub
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest # Menggunakan server Linux terbaru karena lebih cepat
+
+    steps:
+    # 1. Mengunduh kode dari repositori
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive # Penting jika AssetsTools.NET berada di sub-module terpisah
+
+    # 2. Memasang Java (Dibutuhkan oleh Android SDK untuk proses signing/packaging)
+    - name: Setup Java JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'microsoft'
+
+    # 3. Memasang .NET SDK terbaru yang mendukung MAUI/Avalonia Mobile
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x' # Sesuai dengan versi .NET yang dipakai UABEAvalonia
+
+    # 4. Memasang Android Workload khusus untuk .NET
+    - name: Install Android Workload
+      run: dotnet workload install android
+
+    # 5. Memulihkan (Restore) semua library NuGet yang dibutuhkan UABEAvalonia
+    - name: Restore Dependencies
+      run: dotnet restore UABEAvalonia.Android/UABEAvalonia.Android.csproj
+
+    # 6. Kompilasi Kode Menjadi APK (Release Mode)
+    - name: Compile APK
+      run: |
+        dotnet publish UABEAvalonia.Android/UABEAvalonia.Android.csproj -c Release -f net8.0-android --no-restore
+
+    # 7. Mengunggah hasil APK ke halaman GitHub Actions agar bisa Anda unduh
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: UABEAvalonia-Android-APK
+        path: UABEAvalonia.Android/bin/Release/net8.0-android/*-Signed.apk # Mengambil file APK yang sudah ditandatangani otomatis oleh debug key
