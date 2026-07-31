@@ -26,10 +26,10 @@ jobs:
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
-
-    # Memasang Workload Android versi spesifik agar tidak memicu error "Out of support"
+        
+    # 4. Memasang Android Workload standar tanpa argumen tambahan
     - name: Install Android Workload
-      run: dotnet workload install android --include-pre-releases
+      run: dotnet workload install android
 
     - name: Restore Dependencies
       run: dotnet restore UABEAvalonia/UABEAvalonia.Android/UABEAvalonia.Android.csproj
