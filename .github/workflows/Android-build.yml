@@ -29,9 +29,11 @@ jobs:
       with:
         dotnet-version: '8.0.x' # Sesuai dengan versi .NET yang dipakai UABEAvalonia
 
-    # 4. Memasang Android Workload khusus untuk .NET
+    # 4. Memasang Android Workload khusus untuk .NET dengan hak akses penuh (Sudo)
     - name: Install Android Workload
-      run: dotnet workload install android
+      run: |
+        sudo dotnet workload install android --configfile /etc/dotnet/NuGet.Config || dotnet workload install android
+        
 
     # 5. Memulihkan (Restore) semua library
     - name: Restore Dependencies
