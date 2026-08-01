@@ -71,24 +71,21 @@ jobs:
         }
         '@ | Out-File -FilePath "${{ github.workspace }}\UABEAndroidMurni\MainActivity.cs" -Encoding utf8
 
-    # 4. MEMBUAT SOLUSI: Mengunci lokasi pembuatan file solusi di folder utama secara absolut
+    # 4. MEMBUAT SOLUSI: Menggunakan argumen --output agar file terbuat di lokasi absolut tanpa perintah CD
     - name: Generate Official Mobile Solution File
       run: |
-        cd "${{ github.workspace }}"
-        dotnet new sln -n UABEAndroidMurni
-        dotnet sln UABEAndroidMurni.sln add UABEAndroidMurni/UABEAndroidMurni.csproj
+        dotnet new sln -n UABEAndroidMurni --output "${{ github.workspace }}"
+        dotnet sln "${{ github.workspace }}\UABEAndroidMurni.sln" add "${{ github.workspace }}\UABEAndroidMurni\UABEAndroidMurni.csproj"
 
-    # 5. RESTORE: Melakukan Restore tepat pada target file solusi Android kita
+    # 5. RESTORE: Melakukan Restore murni menembak file solusi absolut
     - name: Restore Dependencies
       run: |
-        cd "${{ github.workspace }}"
-        dotnet restore UABEAndroidMurni.sln -p:CheckEolWorkloads=false --force
+        dotnet restore "${{ github.workspace }}\UABEAndroidMurni.sln" -p:CheckEolWorkloads=false --force
 
-    # 6. COMPILE: Merakit file solusi spesifik menjadi berkas APK
+    # 6. COMPILE: Merakit biner solusi absolut menjadi berkas APK
     - name: Compile APK
       run: |
-        cd "${{ github.workspace }}"
-        dotnet publish UABEAndroidMurni.sln -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
+        dotnet publish "${{ github.workspace }}\UABEAndroidMurni.sln" -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
 
     # 7. Mengunggah hasil berkas APK final Anda
     - name: Upload APK Artifact
