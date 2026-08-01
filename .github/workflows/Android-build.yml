@@ -29,27 +29,36 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # 1. Hapus intervensi berkas desktop lama
-    - name: Remove Desktop Interventions
+    # TAKTIK PARIPURNA: Mengisolasi file sumber dan menghapus total berkas PC dari server
+    - name: Clean and Isolate Mobile Source
       run: |
-        if (Test-Path "UABEAvalonia.sln") { Remove-Item "UABEAvalonia.sln" -Force }
-        if (Test-Path "UABEAvalonia\UABEAvalonia.csproj") { Remove-Item "UABEAvalonia\UABEAvalonia.csproj" -Force }
+        # Buat folder bersih khusus aplikasi Android
+        New-Item -ItemType Directory -Force -Path "UABEAndroidApp"
+        New-Item -ItemType Directory -Force -Path "UABEAndroidApp\SourceCode"
+        
+        # Pindahkan file kode inti (.cs) dan desain (.axaml) ke dalam zona steril Android
+        Copy-Item -Path "UABEAvalonia\**\*.cs" -Destination "UABEAndroidApp\SourceCode" -Recurse -Force
+        Copy-Item -Path "UABEAvalonia\**\*.axaml" -Destination "UABEAndroidApp\SourceCode" -Recurse -Force
+        
+        # HAPUS TOTAL seluruh sisa file bawaan komputer agar compiler tidak bisa mengintip setelan PC
+        Remove-Item "UABEAvalonia.sln" -Force -ErrorAction SilentlyContinue
+        Remove-Item "UABEAvalonia" -Recurse -Force -ErrorAction SilentlyContinue
 
-    # 2. FORCE MANIFEST: Membuat identitas Android asli agar compiler .NET tidak bisa mengelak
-    - name: Force Create Android Manifest
+    # Membuat berkas manifest identitas Android di folder baru
+    - name: Create Isolated Android Manifest
       run: |
-        New-Item -ItemType Directory -Force -Path "Properties"
+        New-Item -ItemType Directory -Force -Path "UABEAndroidApp\Properties"
         @'
         <?xml version="1.0" encoding="utf-8"?>
         <manifest xmlns:android="http://android.com" package="com.sukma.uabea.android" android:versionCode="1" android:versionName="1.0">
             <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
-            <application android:label="UABE Android" android:allowBackup="true" android:icon="@mipmap/ic_launcher">
+            <application android:label="UABE Android" android:allowBackup="true">
             </application>
         </manifest>
-        '@ | Out-File -FilePath "Properties\AndroidManifest.xml" -Encoding utf8
+        '@ | Out-File -FilePath "UABEAndroidApp\Properties\AndroidManifest.xml" -Encoding utf8
 
-    # 3. Membuat berkas proyek Android mandiri
-    - name: Create Self-Contained Android Project File
+    # Membuat file proyek Android murni di dalam folder steril
+    - name: Create Isolated Android Project File
       run: |
         @'
         <Project Sdk="Microsoft.NET.Sdk">
@@ -64,26 +73,26 @@ jobs:
           </PropertyGroup>
           <ItemGroup>
             <PackageReference Include="Avalonia.Android" Version="11.0.10" />
-            <Compile Include="UABEAvalonia\**\*.cs" />
-            <AvaloniaResource Include="UABEAvalonia\**\*.axaml" />
+            <Compile Include="SourceCode\**\*.cs" />
+            <AvaloniaResource Include="SourceCode\**\*.axaml" />
           </ItemGroup>
         </Project>
-        '@ | Out-File -FilePath "UABEAvaloniaAndroidDirect.csproj" -Encoding utf8
+        '@ | Out-File -FilePath "UABEAndroidApp\UABEAndroidApp.csproj" -Encoding utf8
 
-    # 4. Melakukan Restore murni dengan identitas Android yang sudah valid
+    # Melakukan Restore murni di lingkungan steril tanpa gangguan file biner komputer
     - name: Restore Dependencies
       run: |
-        dotnet restore UABEAvaloniaAndroidDirect.csproj -p:CheckEolWorkloads=false --force
+        dotnet restore UABEAndroidApp\UABEAndroidApp.csproj -p:CheckEolWorkloads=false --force
 
-    # 5. Merakit seluruh berkas menjadi aplikasi APK utuh
+    # Merakit seluruh berkas menjadi aplikasi APK utuh
     - name: Compile APK
       run: |
-        dotnet publish UABEAvaloniaAndroidDirect.csproj -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
+        dotnet publish UABEAndroidApp\UABEAndroidApp.csproj -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
 
-    # 6. Mengunggah hasil berkas APK final Anda
+    # Mengunggah hasil berkas APK final Anda
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: UABEAvalonia-Android-APK
-        path: bin\Release\net8.0-android\*Signed.apk
+        path: UABEAndroidApp\bin\Release\net8.0-android\*Signed.apk
         
