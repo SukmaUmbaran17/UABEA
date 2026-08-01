@@ -27,13 +27,13 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # 1. SAPU BERSIH: Menghapus file .slnx dan .sln desktop bawaan PC agar tidak membingungkan server
+    # 1. SAPU BERSIH: Menghapus file .slnx dan .sln desktop bawaan PC agar tidak mengintervensi server
     - name: Wipe All Desktop Interventions
       run: |
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.slnx -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.sln -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
 
-    # 2. Membuat file Proyek Android langsung di folder depan (Root Utama)
+    # 2. Membuat file Proyek Android langsung di halaman depan (Root)
     - name: Create Clean Android Project
       run: |
         @'
@@ -70,23 +70,17 @@ jobs:
         }
         '@ | Out-File -FilePath "Properties\MainActivity.cs" -Encoding utf8
 
-    # 4. MEMBUAT SOLUSI: Membuat file solusi langsung menempel di folder depan tanpa sub-folder
-    - name: Generate Official Mobile Solution File
+    # 4. RESTORE LANGSUNG: Melakukan Restore langsung menembak file .csproj tanpa lewat perantara Solusi (.sln)
+    - name: Restore Dependencies Direct
       run: |
-        dotnet new sln -n UABEAndroidApp
-        dotnet sln UABEAndroidApp.sln add UABEAndroidApp.csproj
+        dotnet restore UABEAndroidApp.csproj -p:CheckEolWorkloads=false --force
 
-    # 5. RESTORE: Melakukan Restore instan pada file solusi di halaman depan
-    - name: Restore Dependencies
+    # 5. COMPILE LANGSUNG: Merakit file .csproj langsung di halaman depan menjadi berkas APK matang
+    - name: Compile APK Direct
       run: |
-        dotnet restore UABEAndroidApp.sln -p:CheckEolWorkloads=false --force
+        dotnet publish UABEAndroidApp.csproj -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
 
-    # 6. COMPILE: Merakit proyek di halaman depan langsung menjadi berkas APK
-    - name: Compile APK
-      run: |
-        dotnet publish UABEAndroidApp.sln -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
-
-    # 7. Mengunggah hasil berkas APK final Anda
+    # 6. Mengunggah hasil berkas APK final Anda
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
