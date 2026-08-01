@@ -29,12 +29,13 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # TAKTIK PARIPURNA: Hapus file solusi PC (.sln) agar MSBuild tidak bisa mengintip setelan desktop
-    - name: Remove Desktop Solution Interventions
+    # TAKTIK PARIPURNA: Hapus file solusi dan file proyek desktop agar tidak memicu error bentrokan
+    - name: Remove Desktop Interventions
       run: |
         if (Test-Path "UABEAvalonia.sln") { Remove-Item "UABEAvalonia.sln" -Force }
+        if (Test-Path "UABEAvalonia\UABEAvalonia.csproj") { Remove-Item "UABEAvalonia\UABEAvalonia.csproj" -Force }
 
-    # Membuat proyek Android murni yang berdiri sendiri
+    # Membuat proyek Android murni tanpa ketergantungan berkas luar
     - name: Create Self-Contained Android Project File
       run: |
         @'
