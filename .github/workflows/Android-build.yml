@@ -29,16 +29,20 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # TAKTIK SAKTI: Memaksa file proyek induk (Desktop) untuk menerima target biner Android modern
-    - name: Patch Parent Project Framework
+    # TAKTIK PARIPURNA: Mengunci target Android 34 secara global untuk seluruh proyek lewat Directory.Build.props
+    - name: Force Global Framework Override
       run: |
-        $path = "UABEAvalonia\UABEAvalonia.csproj"
-        $content = Get-Content $path
-        # Menyisipkan target Android ke dalam struktur utama proyek induk agar sinkron
-        $content = $content -replace "<TargetFrameworks>net8.0</TargetFrameworks>", "<TargetFrameworks>net8.0;net8.0-android34.0</TargetFrameworks>"
-        $content | Out-File $path -Encoding utf8
+        @'
+        <Project>
+          <PropertyGroup>
+            <!-- Jika proyek mendeteksi target Android, paksa kunci ke versi API 34.0 dan matikan API 21 -->
+            <TargetFrameworks Condition="$(TargetFrameworks) == '' and '$(TargetFramework)' == ''">net8.0-android34.0</TargetFrameworks>
+            <CheckEolWorkloads>false</CheckEolWorkloads>
+          </PropertyGroup>
+        </Project>
+        '@ | Out-File -FilePath "Directory.Build.props" -Encoding utf8
 
-    # Membuat file proyek aplikasi mobile mandiri
+    # Membuat file proyek aplikasi mobile mandiri di folder terisolasi
     - name: Create Isolated Android Project Folder
       run: |
         New-Item -ItemType Directory -Force -Path "MobileAppIsolated"
@@ -53,7 +57,6 @@ jobs:
             <ApplicationId>com.sukma.uabea.android</ApplicationId>
             <ApplicationVersion>1</ApplicationVersion>
             <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-            <CheckEolWorkloads>false</CheckEolWorkloads>
           </PropertyGroup>
           <ItemGroup>
             <PackageReference Include="Avalonia.Android" Version="11.0.10" />
@@ -62,17 +65,17 @@ jobs:
         </Project>
         '@ | Out-File -FilePath "MobileAppIsolated\UABEAvaloniaAndroidApp.csproj" -Encoding utf8
 
-    # Melakukan Restore dengan penguncian parameter global di seluruh arsitektur proyek
+    # Melakukan Restore dengan pembersihan cache total
     - name: Restore Dependencies
       run: |
-        dotnet restore MobileAppIsolated\UABEAvaloniaAndroidApp.csproj -p:TargetFramework=net8.0-android34.0 -p:CheckEolWorkloads=false --force
+        dotnet restore MobileAppIsolated\UABEAvaloniaAndroidApp.csproj --force
 
     # Merakit kode biner menjadi aplikasi APK utuh
     - name: Compile APK
       run: |
-        dotnet publish MobileAppIsolated\UABEAvaloniaAndroidApp.csproj -c Release -f net8.0-android34.0 --no-restore -p:CheckEolWorkloads=false
+        dotnet publish MobileAppIsolated\UABEAvaloniaAndroidApp.csproj -c Release -f net8.0-android34.0 --no-restore
 
-    # Mengunggah berkas APK yang sudah ditandatangani otomatis
+    # Mengunggah berkas APK hasil kompilasi akhir
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
