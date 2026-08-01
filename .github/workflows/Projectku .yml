@@ -27,7 +27,7 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # 1. SAPU BERSIH: Memusnahkan sisa file solusi desktop di folder server agar tidak mengunci mode PC
+    # 1. SAPU BERSIH: Menghapus sisa file solusi desktop di folder server agar tidak mengunci mode PC
     - name: Wipe All Desktop Interventions
       run: |
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.slnx -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
@@ -57,7 +57,6 @@ jobs:
             <Nullable>enable</Nullable>
             <ImplicitUsings>enable</ImplicitUsings>
             <ApplicationId>com.sukma.uabea.android</ApplicationId>
-            <!-- Menonaktifkan kuncian binding kompilasi desktop bawaan PC -->
             <AvaloniaUseCompiledBindings>false</AvaloniaUseCompiledBindings>
             <CheckEolWorkloads>false</CheckEolWorkloads>
           </PropertyGroup>
@@ -94,9 +93,9 @@ jobs:
       run: |
         dotnet publish UABEAndroidApp.csproj -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
 
-    # 7. Mengunggah hasil berkas APK final Anda
+    # 7. UPLOAD FINAL: Memperbaiki nama plugin resmi (upload-artifact) agar APK berhasil diterbitkan
     - name: Upload APK Artifact
-      uses: actions/artifact@v4
+      uses: actions/upload-artifact@v4
       with:
         name: UABEAvalonia-Android-APK
         path: bin\Release\net8.0-android\*Signed.apk
