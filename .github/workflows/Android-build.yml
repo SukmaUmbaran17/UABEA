@@ -71,21 +71,21 @@ jobs:
         }
         '@ | Out-File -FilePath "UABEAndroidMurni\MainActivity.cs" -Encoding utf8
 
-    # 4. MEMBUAT SOLUSI: Mengunci pembuatan solusi tepat di dalam kamar folder proyek yang sama
+    # 4. MEMBUAT SOLUSI: Mengunci format penulisan jalur menggunakan tanda backslash (\) khusus Windows Server
     - name: Generate Official Mobile Solution File
       run: |
         dotnet new sln -n UABEAndroidMurni --output UABEAndroidMurni
-        dotnet sln UABEAndroidMurni/UABEAndroidMurni.sln add UABEAndroidMurni/UABEAndroidMurni.csproj
+        dotnet sln UABEAndroidMurni\UABEAndroidMurni.sln add UABEAndroidMurni\UABEAndroidMurni.csproj
 
-    # 5. RESTORE: Melakukan Restore menembak file solusi di dalam folder terpusat
+    # 5. RESTORE: Melakukan Restore menembak file solusi lewat jalur Windows murni
     - name: Restore Dependencies
       run: |
-        dotnet restore UABEAndroidMurni/UABEAndroidMurni.sln -p:CheckEolWorkloads=false --force
+        dotnet restore UABEAndroidMurni\UABEAndroidMurni.sln -p:CheckEolWorkloads=false --force
 
     # 6. COMPILE: Merakit proyek dari dalam folder terpusat menjadi berkas APK
     - name: Compile APK
       run: |
-        dotnet publish UABEAndroidMurni/UABEAndroidMurni.sln -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
+        dotnet publish UABEAndroidMurni\UABEAndroidMurni.sln -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
 
     # 7. Mengunggah hasil berkas APK final Anda
     - name: Upload APK Artifact
