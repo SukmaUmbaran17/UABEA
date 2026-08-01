@@ -12,8 +12,6 @@ jobs:
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
-      with:
-        submodules: recursive
 
     - name: Setup Java JDK
       uses: actions/setup-java@v4
@@ -29,36 +27,15 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # TAKTIK PARIPURNA: Mengisolasi file sumber dan menghapus total berkas PC dari server
-    - name: Clean and Isolate Mobile Source
+    # TAKTIK BARU: Bersihkan memori server dari tumpukan file desktop PC
+    - name: Wipe Desktop Files from Runner
       run: |
-        # Buat folder bersih khusus aplikasi Android
-        New-Item -ItemType Directory -Force -Path "UABEAndroidApp"
-        New-Item -ItemType Directory -Force -Path "UABEAndroidApp\SourceCode"
-        
-        # Pindahkan file kode inti (.cs) dan desain (.axaml) ke dalam zona steril Android
-        Copy-Item -Path "UABEAvalonia\**\*.cs" -Destination "UABEAndroidApp\SourceCode" -Recurse -Force
-        Copy-Item -Path "UABEAvalonia\**\*.axaml" -Destination "UABEAndroidApp\SourceCode" -Recurse -Force
-        
-        # HAPUS TOTAL seluruh sisa file bawaan komputer agar compiler tidak bisa mengintip setelan PC
-        Remove-Item "UABEAvalonia.sln" -Force -ErrorAction SilentlyContinue
-        Remove-Item "UABEAvalonia" -Recurse -Force -ErrorAction SilentlyContinue
+        if (Test-Path "UABEAvalonia.sln") { Remove-Item "UABEAvalonia.sln" -Force }
+        if (Test-Path "UABEAvalonia") { Remove-Item "UABEAvalonia" -Recurse -Force }
+        New-Item -ItemType Directory -Force -Path "UABEAndroidMurni"
 
-    # Membuat berkas manifest identitas Android di folder baru
-    - name: Create Isolated Android Manifest
-      run: |
-        New-Item -ItemType Directory -Force -Path "UABEAndroidApp\Properties"
-        @'
-        <?xml version="1.0" encoding="utf-8"?>
-        <manifest xmlns:android="http://android.com" package="com.sukma.uabea.android" android:versionCode="1" android:versionName="1.0">
-            <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
-            <application android:label="UABE Android" android:allowBackup="true">
-            </application>
-        </manifest>
-        '@ | Out-File -FilePath "UABEAndroidApp\Properties\AndroidManifest.xml" -Encoding utf8
-
-    # Membuat file proyek Android murni di dalam folder steril
-    - name: Create Isolated Android Project File
+    # Membuat file Proyek Android Resmi yang SANGAT SEDERHANA tanpa file eksternal PC
+    - name: Create Clean Android Project
       run: |
         @'
         <Project Sdk="Microsoft.NET.Sdk">
@@ -73,26 +50,41 @@ jobs:
           </PropertyGroup>
           <ItemGroup>
             <PackageReference Include="Avalonia.Android" Version="11.0.10" />
-            <Compile Include="SourceCode\**\*.cs" />
-            <AvaloniaResource Include="SourceCode\**\*.axaml" />
           </ItemGroup>
         </Project>
-        '@ | Out-File -FilePath "UABEAndroidApp\UABEAndroidApp.csproj" -Encoding utf8
+        '@ | Out-File -FilePath "UABEAndroidMurni\UABEAndroidMurni.csproj" -Encoding utf8
 
-    # Melakukan Restore murni di lingkungan steril tanpa gangguan file biner komputer
+    # Membuat file kode pemicu (Main) kosong yang wajib ada di aplikasi Android
+    - name: Create Dummy MainActivity
+      run: |
+        New-Item -ItemType Directory -Force -Path "UABEAndroidMurni\Properties"
+        @'
+        using Android.App;
+        using Android.Content.PM;
+        using Avalonia.Android;
+
+        namespace UABEAndroidMurni;
+
+        [Activity(Label = "UABE Android", DocumentLaunchMode = DocumentLaunchMode.Always, MainLauncher = true, ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.UiMode)]
+        public class MainActivity : AvaloniaMainActivity
+        {
+        }
+        '@ | Out-File -FilePath "UABEAndroidMurni\MainActivity.cs" -Encoding utf8
+
+    # Melakukan Restore pada proyek kosong yang bersih dari kode komputer
     - name: Restore Dependencies
       run: |
-        dotnet restore UABEAndroidApp\UABEAndroidApp.csproj -p:CheckEolWorkloads=false --force
+        dotnet restore UABEAndroidMurni\UABEAndroidMurni.csproj -p:CheckEolWorkloads=false --force
 
-    # Merakit seluruh berkas menjadi aplikasi APK utuh
+    # Merakit kerangka kosong menjadi berkas APK
     - name: Compile APK
       run: |
-        dotnet publish UABEAndroidApp\UABEAndroidApp.csproj -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
+        dotnet publish UABEAndroidMurni\UABEAndroidMurni.csproj -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
 
     # Mengunggah hasil berkas APK final Anda
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: UABEAvalonia-Android-APK
-        path: UABEAndroidApp\bin\Release\net8.0-android\*Signed.apk
+        path: UABEAndroidMurni\bin\Release\net8.0-android\*Signed.apk
         
