@@ -29,13 +29,13 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # TAKTIK PARIPURNA: Membuat proyek Android mandiri yang langsung merakit seluruh file C# inti UABE
+    # MENGUNCI PAKSA MENGGUNAKAN SDK ANDROID RESMI (Microsoft.NET.Sdk.Android)
     - name: Create Self-Contained Android Project File
       run: |
         @'
-        <Project Sdk="Microsoft.NET.Sdk">
+        <Project Sdk="Microsoft.NET.Sdk.Android">
           <PropertyGroup>
-            <TargetFramework>net8.0-android34.0</TargetFramework>
+            <TargetFramework>net8.0-android</TargetFramework>
             <SupportedOSPlatformVersion>31</SupportedOSPlatformVersion>
             <OutputType>Exe</OutputType>
             <Nullable>enable</Nullable>
@@ -46,30 +46,29 @@ jobs:
             <CheckEolWorkloads>false</CheckEolWorkloads>
           </PropertyGroup>
           <ItemGroup>
-            <!-- Memasang pustaka dasar Avalonia Mobile Android -->
             <PackageReference Include="Avalonia.Android" Version="11.0.10" />
             
-            <!-- Mengambil paksa seluruh file kode C# dan aset XAML dari folder UABEAvalonia asli -->
+            <!-- Mengisolasi kompilasi file kode C# agar tidak terjadi tabrakan arsitektur -->
             <Compile Include="UABEAvalonia\**\*.cs" />
             <AvaloniaResource Include="UABEAvalonia\**\*.axaml" />
           </ItemGroup>
         </Project>
         '@ | Out-File -FilePath "UABEAvaloniaAndroidDirect.csproj" -Encoding utf8
 
-    # Melakukan Restore langsung pada file proyek mandiri yang baru
+    # Melakukan Restore dengan penguncian target framework mobile secara mutlak
     - name: Restore Dependencies
       run: |
-        dotnet restore UABEAvaloniaAndroidDirect.csproj --force
+        dotnet restore UABEAvaloniaAndroidDirect.csproj -p:TargetFramework=net8.0-android -p:CheckEolWorkloads=false --force
 
-    # Merakit seluruh komponen biner langsung menjadi file APK utuh
+    # Merakit seluruh berkas menjadi aplikasi APK utuh
     - name: Compile APK
       run: |
-        dotnet publish UABEAvaloniaAndroidDirect.csproj -c Release -f net8.0-android34.0 --no-restore
+        dotnet publish UABEAvaloniaAndroidDirect.csproj -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
 
     # Mengunggah hasil berkas APK final Anda
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: UABEAvalonia-Android-APK
-        path: bin\Release\net8.0-android34.0\*Signed.apk
+        path: bin\Release\net8.0-android\*Signed.apk
         
