@@ -71,11 +71,12 @@ jobs:
         }
         '@ | Out-File -FilePath "UABEAndroidMurni\MainActivity.cs" -Encoding utf8
 
-    # 4. SENJATA PAMUNGKAS: Buat file Solusi (.sln) baru khusus Android agar MSBuild Server tunduk
+    # 4. Memperbaiki jalur pencarian file solusi di server Windows
     - name: Generate Official Mobile Solution File
       run: |
         dotnet new sln -n UABEAndroidMurni
-        dotnet sln UABEAndroidMurni.sln add UABEAndroidMurni\UABEAndroidMurni.csproj
+        dotnet sln .\UABEAndroidMurni.sln add .\UABEAndroidMurni\UABEAndroidMurni.csproj
+        
 
     # 5. Melakukan Restore langsung menembak file Solusi Resmi buatan kita
     - name: Restore Dependencies
