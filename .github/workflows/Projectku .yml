@@ -33,11 +33,23 @@ jobs:
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.slnx -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.sln -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
 
-    # 2. SUNTIKAN SAKTI: Membuat file Proyek Android menggunakan SDK RAZOR agar kuncian desktop komputer hancur total
+    # 2. GLOBAL JSON FORCE: Memaksa server mengunci arsitektur SDK ke mode mobile Android
+    - name: Create Global JSON
+      run: |
+        @'
+        {
+          "sdk": {
+            "version": "8.0.100",
+            "rollForward": "latestFeature"
+          }
+        }
+        '@ | Out-File -FilePath "global.json" -Encoding utf8
+
+    # 3. Membuat file Proyek Android murni dengan deklarasi platform yang ketat
     - name: Create Clean Android Project
       run: |
         @'
-        <Project Sdk="Microsoft.NET.Sdk.Razor">
+        <Project Sdk="Microsoft.NET.Sdk">
           <PropertyGroup>
             <TargetFramework>net8.0-android</TargetFramework>
             <SupportedOSPlatformVersion>31</SupportedOSPlatformVersion>
@@ -45,6 +57,8 @@ jobs:
             <Nullable>enable</Nullable>
             <ImplicitUsings>enable</ImplicitUsings>
             <ApplicationId>com.sukma.uabea.android</ApplicationId>
+            <!-- Menonaktifkan kuncian binding kompilasi desktop bawaan PC -->
+            <AvaloniaUseCompiledBindings>false</AvaloniaUseCompiledBindings>
             <CheckEolWorkloads>false</CheckEolWorkloads>
           </PropertyGroup>
           <ItemGroup>
@@ -53,7 +67,7 @@ jobs:
         </Project>
         '@ | Out-File -FilePath "UABEAndroidApp.csproj" -Encoding utf8
 
-    # 3. Membuat file kode pemicu (Main) di folder Properties depan
+    # 4. Membuat file kode pemicu (Main) di folder Properties depan
     - name: Create Dummy MainActivity
       run: |
         New-Item -ItemType Directory -Force -Path "Properties"
@@ -70,19 +84,19 @@ jobs:
         }
         '@ | Out-File -FilePath "Properties\MainActivity.cs" -Encoding utf8
 
-    # 4. RESTORE PAKSA: Melakukan Restore dependencies langsung ke berkas proyek mandiri
+    # 5. RESTORE AMAN: Menghapus cache biner lokal agar terhindar dari sisa ingatan error kemarin
     - name: Restore Dependencies Direct
       run: |
-        dotnet restore UABEAndroidApp.csproj -p:CheckEolWorkloads=false --force
+        dotnet restore UABEAndroidApp.csproj --no-cache -p:CheckEolWorkloads=false
 
-    # 5. COMPILE PAKSA: Merakit langsung biner menjadi berkas APK
+    # 6. COMPILE UTAMA: Merakit berkas menjadi aplikasi APK utuh
     - name: Compile APK Direct
       run: |
         dotnet publish UABEAndroidApp.csproj -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
 
-    # 6. Mengunggah hasil berkas APK final Anda
+    # 7. Mengunggah hasil berkas APK final Anda
     - name: Upload APK Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/artifact@v4
       with:
         name: UABEAvalonia-Android-APK
         path: bin\Release\net8.0-android\*Signed.apk
