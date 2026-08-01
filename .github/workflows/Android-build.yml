@@ -29,13 +29,13 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # KITA BUAT FILE PROYEK YANG SANGAT KETAT DI FOLDER ROOT UTAMA
-    - name: Force Create Android Project File
+    # KITA BUAT FOLDER TERISOLASI AGAR SISTEM .NET TIDAK BISA MENGINTIP FILE .SLN DESKTOP
+    - name: Create Isolated Android Project Folder
       run: |
+        New-Item -ItemType Directory -Force -Path "MobileAppIsolated"
         @'
         <Project Sdk="Microsoft.NET.Sdk">
           <PropertyGroup>
-            <!-- Mengunci paksa target ke API modern level 34 secara mutlak -->
             <TargetFramework>net8.0-android34.0</TargetFramework>
             <SupportedOSPlatformVersion>31</SupportedOSPlatformVersion>
             <OutputType>Exe</OutputType>
@@ -48,24 +48,26 @@ jobs:
           </PropertyGroup>
           <ItemGroup>
             <PackageReference Include="Avalonia.Android" Version="11.0.10" />
-            <ProjectReference Include="UABEAvalonia\UABEAvalonia.csproj" />
+            <!-- Melompat satu folder keluar untuk mengambil logika inti UABEA asli -->
+            <ProjectReference Include="..\UABEAvalonia\UABEAvalonia.csproj" />
           </ItemGroup>
         </Project>
-        '@ | Out-File -FilePath "UABEAvaloniaAndroidApp.csproj" -Encoding utf8
+        '@ | Out-File -FilePath "MobileAppIsolated\UABEAvaloniaAndroidApp.csproj" -Encoding utf8
 
-    # FORCE RESTORE: Menghapus cache lama dan mengunci target framework agar tidak lari ke API 21
+    # RESTORE DI FOLDER TERISOLASI
     - name: Restore Dependencies
       run: |
-        dotnet restore UABEAvaloniaAndroidApp.csproj -p:TargetFramework=net8.0-android34.0 -p:CheckEolWorkloads=false --force
+        dotnet restore MobileAppIsolated\UABEAvaloniaAndroidApp.csproj -p:CheckEolWorkloads=false --force
 
-    # KOMPILASI UTAMA: Merakit langsung tanpa mengintip berkas solusi bawaan desktop
+    # MERAKIT LANGSUNG MENJADI APK
     - name: Compile APK
       run: |
-        dotnet publish UABEAvaloniaAndroidApp.csproj -c Release -f net8.0-android34.0 --no-restore -p:CheckEolWorkloads=false
+        dotnet publish MobileAppIsolated\UABEAvaloniaAndroidApp.csproj -c Release -f net8.0-android34.0 --no-restore -p:CheckEolWorkloads=false
 
+    # MENGUNGGAH FILE APK HASIL COMPILE
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: UABEAvalonia-Android-APK
-        path: bin\Release\net8.0-android34.0\*Signed.apk
+        path: MobileAppIsolated\bin\Release\net8.0-android34.0\*Signed.apk
         
