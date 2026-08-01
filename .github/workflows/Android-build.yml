@@ -77,15 +77,16 @@ jobs:
         dotnet new sln -n UABEAndroidMurni
         dotnet sln add UABEAndroidMurni/UABEAndroidMurni.csproj    
 
-    # 5. Melakukan Restore langsung menembak file Solusi Resmi buatan kita
+     # 5. Melakukan Restore otomatis tanpa menyebutkan nama file .sln
     - name: Restore Dependencies
       run: |
-        dotnet restore UABEAndroidMurni.sln -p:CheckEolWorkloads=false --force
+        dotnet restore -p:CheckEolWorkloads=false --force
 
-    # 6. Merakit seluruh berkas lewat jalur Solusi Resmi menjadi file APK
+    # 6. Merakit langsung file solusi yang aktif di server Windows
     - name: Compile APK
       run: |
-        dotnet publish UABEAndroidMurni.sln -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
+        dotnet publish -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
+        
 
     # 7. Mengunggah hasil berkas APK final Anda
     - name: Upload APK Artifact
