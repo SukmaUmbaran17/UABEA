@@ -24,13 +24,13 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    # 1. SAPU BERSIH: Menghapus sisa file solusi desktop di folder server agar tidak mengunci mode PC
+    # 1. SAPU BERSIH: Menghapus seluruh file kuncian solusi desktop bawaan PC
     - name: Wipe All Desktop Interventions
       run: |
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.slnx -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.sln -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
 
-    # 2. GLOBAL JSON FORCE: Memaksa server mengunci arsitektur SDK ke mode mobile Android
+    # 2. GLOBAL JSON FORCE: Mengunci arsitektur SDK agar tidak melirik profil komputer desktop
     - name: Create Global JSON
       run: |
         @'
@@ -42,11 +42,11 @@ jobs:
         }
         '@ | Out-File -FilePath "global.json" -Encoding utf8
 
-    # 3. PASANG WORKLOAD BARU: Menginstal SDK Android tepat di dalam lingkungan terisolasi global.json
+    # 3. PASANG WORKLOAD: Memasang SDK Android di lingkungan steril
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # 4. Membuat file Proyek Android murni dengan deklarasi platform yang ketat
+    # 4. MEMBUAT PROYEK: Memaksa compiler mengabaikan folder TexToolWrap milik komputer PC
     - name: Create Clean Android Project
       run: |
         @'
@@ -63,6 +63,15 @@ jobs:
           </PropertyGroup>
           <ItemGroup>
             <PackageReference Include="Avalonia.Android" Version="11.0.10" />
+            
+            <!-- Menarik file kode utama C# -->
+            <Compile Include="UABEAvalonia\**\*.cs" />
+            <AvaloniaResource Include="UABEAvalonia\**\*.axaml" />
+            
+            <!-- SUNTIKAN SAKTI: Membuang folder TexToolWrap PC agar compiler Android tidak bingung -->
+            <Compile Remove="UABEAvalonia\TexToolWrap\**\*" />
+            <None Remove="UABEAvalonia\TexToolWrap\**\*" />
+            <AvaloniaResource Remove="UABEAvalonia\TexToolWrap\**\*" />
           </ItemGroup>
         </Project>
         '@ | Out-File -FilePath "UABEAndroidApp.csproj" -Encoding utf8
@@ -84,18 +93,18 @@ jobs:
         }
         '@ | Out-File -FilePath "Properties\MainActivity.cs" -Encoding utf8
 
-    # 6. RESTORE AMAN: Melakukan Restore dependencies langsung ke berkas proyek mandiri
+    # 6. RESTORE AMAN: Sinkronisasi akhir beban kerja Android
     - name: Restore Dependencies Direct
       run: |
         dotnet workload restore UABEAndroidApp.csproj
         dotnet restore UABEAndroidApp.csproj --no-cache -p:CheckEolWorkloads=false
 
-    # 7. COMPILE UTAMA: Merakit berkas menjadi aplikasi APK utuh
+    # 7. COMPILE UTAMA: Meluncurkan perakitan biner APK murni tanpa file sampah PC
     - name: Compile APK Direct
       run: |
         dotnet publish UABEAndroidApp.csproj -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
 
-    # 8. UPLOAD FINAL: Mengunggah hasil berkas APK final Anda
+    # 8. UPLOAD FINAL: Menerbitkan berkas APK final Anda
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
