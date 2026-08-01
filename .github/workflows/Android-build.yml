@@ -27,11 +27,11 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # 1. MUSNAHKAN SEMUA FILE .SLN DAN .SLNX DI SELURUH FOLDER REPOSITORI
+    # 1. SAPU BERSIH: Cari dan hapus paksa file .slnx di folder mana pun tanpa ampun
     - name: Wipe All Desktop Interventions
       run: |
-        Get-ChildItem -Path . -Include *.sln, *.slnx -Recurse | Remove-Item -Force
-        if (Test-Path "UABEAvalonia") { Remove-Item "UABEAvalonia" -Recurse -Force }
+        Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.slnx -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
+        Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.sln -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
         New-Item -ItemType Directory -Force -Path "UABEAndroidMurni"
 
     # 2. Membuat file Proyek Android Resmi yang bersih
