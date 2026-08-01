@@ -33,7 +33,7 @@ jobs:
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.slnx -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.sln -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
 
-    # 2. Membuat file Proyek Android langsung di halaman depan (Root)
+    # 2. Membuat file Proyek Android langsung di halaman depan (Root) dengan Output TYPE LIBRARY
     - name: Create Clean Android Project
       run: |
         @'
@@ -41,7 +41,8 @@ jobs:
           <PropertyGroup>
             <TargetFramework>net8.0-android</TargetFramework>
             <SupportedOSPlatformVersion>31</SupportedOSPlatformVersion>
-            <OutputType>Exe</OutputType>
+            <!-- DIUBAH KE LIBRARY agar compiler .NET tidak mengunci mode komputer desktop -->
+            <OutputType>Library</OutputType>
             <Nullable>enable</Nullable>
             <ImplicitUsings>enable</ImplicitUsings>
             <ApplicationId>com.sukma.uabea.android</ApplicationId>
@@ -70,12 +71,12 @@ jobs:
         }
         '@ | Out-File -FilePath "Properties\MainActivity.cs" -Encoding utf8
 
-    # 4. RESTORE LANGSUNG: Melakukan Restore langsung menembak file .csproj tanpa lewat perantara Solusi (.sln)
+    # 4. RESTORE LANGSUNG: Melakukan Restore langsung menembak file .csproj
     - name: Restore Dependencies Direct
       run: |
         dotnet restore UABEAndroidApp.csproj -p:CheckEolWorkloads=false --force
 
-    # 5. COMPILE LANGSUNG: Merakit file .csproj langsung di halaman depan menjadi berkas APK matang
+    # 5. COMPILE LANGSUNG: Merakit biner menjadi berkas APK matang
     - name: Compile APK Direct
       run: |
         dotnet publish UABEAndroidApp.csproj -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
