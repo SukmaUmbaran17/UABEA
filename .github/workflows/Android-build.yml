@@ -27,14 +27,14 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # TAKTIK BARU: Bersihkan memori server dari tumpukan file desktop PC
+    # 1. Bersihkan sisa-sisa file biner komputer lama dari server
     - name: Wipe Desktop Files from Runner
       run: |
         if (Test-Path "UABEAvalonia.sln") { Remove-Item "UABEAvalonia.sln" -Force }
         if (Test-Path "UABEAvalonia") { Remove-Item "UABEAvalonia" -Recurse -Force }
         New-Item -ItemType Directory -Force -Path "UABEAndroidMurni"
 
-    # Membuat file Proyek Android Resmi yang SANGAT SEDERHANA tanpa file eksternal PC
+    # 2. Membuat file Proyek Android Resmi yang bersih
     - name: Create Clean Android Project
       run: |
         @'
@@ -54,7 +54,7 @@ jobs:
         </Project>
         '@ | Out-File -FilePath "UABEAndroidMurni\UABEAndroidMurni.csproj" -Encoding utf8
 
-    # Membuat file kode pemicu (Main) kosong yang wajib ada di aplikasi Android
+    # 3. Membuat file kode pemicu (Main) kosong yang wajib ada di aplikasi Android
     - name: Create Dummy MainActivity
       run: |
         New-Item -ItemType Directory -Force -Path "UABEAndroidMurni\Properties"
@@ -71,17 +71,23 @@ jobs:
         }
         '@ | Out-File -FilePath "UABEAndroidMurni\MainActivity.cs" -Encoding utf8
 
-    # Melakukan Restore pada proyek kosong yang bersih dari kode komputer
+    # 4. SENJATA PAMUNGKAS: Buat file Solusi (.sln) baru khusus Android agar MSBuild Server tunduk
+    - name: Generate Official Mobile Solution File
+      run: |
+        dotnet new sln -n UABEAndroidMurni
+        dotnet sln UABEAndroidMurni.sln add UABEAndroidMurni\UABEAndroidMurni.csproj
+
+    # 5. Melakukan Restore langsung menembak file Solusi Resmi buatan kita
     - name: Restore Dependencies
       run: |
-        dotnet restore UABEAndroidMurni\UABEAndroidMurni.csproj -p:CheckEolWorkloads=false --force
+        dotnet restore UABEAndroidMurni.sln -p:CheckEolWorkloads=false --force
 
-    # Merakit kerangka kosong menjadi berkas APK
+    # 6. Merakit seluruh berkas lewat jalur Solusi Resmi menjadi file APK
     - name: Compile APK
       run: |
-        dotnet publish UABEAndroidMurni\UABEAndroidMurni.csproj -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
+        dotnet publish UABEAndroidMurni.sln -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
 
-    # Mengunggah hasil berkas APK final Anda
+    # 7. Mengunggah hasil berkas APK final Anda
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
