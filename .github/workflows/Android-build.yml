@@ -32,7 +32,7 @@ jobs:
       run: |
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.slnx -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.sln -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
-        New-Item -ItemType Directory -Force -Path "${{ github.workspace }}\UABEAndroidMurni"
+        New-Item -ItemType Directory -Force -Path "UABEAndroidMurni"
 
     # 2. Membuat file Proyek Android Resmi yang bersih
     - name: Create Clean Android Project
@@ -52,12 +52,12 @@ jobs:
             <PackageReference Include="Avalonia.Android" Version="11.0.10" />
           </ItemGroup>
         </Project>
-        '@ | Out-File -FilePath "${{ github.workspace }}\UABEAndroidMurni\UABEAndroidMurni.csproj" -Encoding utf8
+        '@ | Out-File -FilePath "UABEAndroidMurni\UABEAndroidMurni.csproj" -Encoding utf8
 
     # 3. Membuat file kode pemicu (Main) kosong yang wajib ada di aplikasi Android
     - name: Create Dummy MainActivity
       run: |
-        New-Item -ItemType Directory -Force -Path "${{ github.workspace }}\UABEAndroidMurni\Properties"
+        New-Item -ItemType Directory -Force -Path "UABEAndroidMurni\Properties"
         @'
         using Android.App;
         using Android.Content.PM;
@@ -69,28 +69,28 @@ jobs:
         public class MainActivity : AvaloniaMainActivity
         {
         }
-        '@ | Out-File -FilePath "${{ github.workspace }}\UABEAndroidMurni\MainActivity.cs" -Encoding utf8
+        '@ | Out-File -FilePath "UABEAndroidMurni\MainActivity.cs" -Encoding utf8
 
-    # 4. MEMBUAT SOLUSI: Menggunakan argumen --output agar file terbuat di lokasi absolut tanpa perintah CD
+    # 4. MEMBUAT SOLUSI: Mengunci pembuatan solusi tepat di dalam kamar folder proyek yang sama
     - name: Generate Official Mobile Solution File
       run: |
-        dotnet new sln -n UABEAndroidMurni --output "${{ github.workspace }}"
-        dotnet sln "${{ github.workspace }}\UABEAndroidMurni.sln" add "${{ github.workspace }}\UABEAndroidMurni\UABEAndroidMurni.csproj"
+        dotnet new sln -n UABEAndroidMurni --output UABEAndroidMurni
+        dotnet sln UABEAndroidMurni/UABEAndroidMurni.sln add UABEAndroidMurni/UABEAndroidMurni.csproj
 
-    # 5. RESTORE: Melakukan Restore murni menembak file solusi absolut
+    # 5. RESTORE: Melakukan Restore menembak file solusi di dalam folder terpusat
     - name: Restore Dependencies
       run: |
-        dotnet restore "${{ github.workspace }}\UABEAndroidMurni.sln" -p:CheckEolWorkloads=false --force
+        dotnet restore UABEAndroidMurni/UABEAndroidMurni.sln -p:CheckEolWorkloads=false --force
 
-    # 6. COMPILE: Merakit biner solusi absolut menjadi berkas APK
+    # 6. COMPILE: Merakit proyek dari dalam folder terpusat menjadi berkas APK
     - name: Compile APK
       run: |
-        dotnet publish "${{ github.workspace }}\UABEAndroidMurni.sln" -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
+        dotnet publish UABEAndroidMurni/UABEAndroidMurni.sln -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
 
     # 7. Mengunggah hasil berkas APK final Anda
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: UABEAvalonia-Android-APK
-        path: ${{ github.workspace }}\UABEAndroidMurni\bin\Release\net8.0-android\*Signed.apk
+        path: UABEAndroidMurni\bin\Release\net8.0-android\*Signed.apk
         
