@@ -71,12 +71,11 @@ jobs:
         }
         '@ | Out-File -FilePath "UABEAndroidMurni\MainActivity.cs" -Encoding utf8
 
-    # 4. Memperbaiki jalur pencarian file solusi di server Windows
+    # 4. Membiarkan sistem mencari file .sln secara otomatis tanpa penulisan manual
     - name: Generate Official Mobile Solution File
       run: |
         dotnet new sln -n UABEAndroidMurni
-        dotnet sln .\UABEAndroidMurni.sln add .\UABEAndroidMurni\UABEAndroidMurni.csproj
-        
+        dotnet sln add UABEAndroidMurni/UABEAndroidMurni.csproj    
 
     # 5. Melakukan Restore langsung menembak file Solusi Resmi buatan kita
     - name: Restore Dependencies
