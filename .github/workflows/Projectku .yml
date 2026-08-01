@@ -1,0 +1,89 @@
+name: Rakit UABE Android APK
+
+on:
+  push:
+    branches: [ "master", "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-android:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup Java JDK
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'microsoft'
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Install Android Workload
+      run: dotnet workload install android
+
+    # 1. SAPU BERSIH: Memusnahkan sisa file solusi desktop di folder server agar tidak mengunci mode PC
+    - name: Wipe All Desktop Interventions
+      run: |
+        Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.slnx -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
+        Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.sln -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
+
+    # 2. Membuat file Proyek Android dasar langsung di root utama
+    - name: Create Clean Android Project
+      run: |
+        @'
+        <Project Sdk="Microsoft.NET.Sdk">
+          <PropertyGroup>
+            <TargetFramework>net8.0-android34.0</TargetFramework>
+            <SupportedOSPlatformVersion>31</SupportedOSPlatformVersion>
+            <OutputType>Library</OutputType>
+            <Nullable>enable</Nullable>
+            <ImplicitUsings>enable</ImplicitUsings>
+            <ApplicationId>com.sukma.uabea.android</ApplicationId>
+            <CheckEolWorkloads>false</CheckEolWorkloads>
+          </PropertyGroup>
+          <ItemGroup>
+            <PackageReference Include="Avalonia.Android" Version="11.0.10" />
+          </ItemGroup>
+        </Project>
+        '@ | Out-File -FilePath "UABEAndroidApp.csproj" -Encoding utf8
+
+    # 3. Membuat file kode pemicu (Main) di folder Properties depan
+    - name: Create Dummy MainActivity
+      run: |
+        New-Item -ItemType Directory -Force -Path "Properties"
+        @'
+        using Android.App;
+        using Android.Content.PM;
+        using Avalonia.Android;
+
+        namespace UABEAndroidApp;
+
+        [Activity(Label = "UABE Android", DocumentLaunchMode = DocumentLaunchMode.Always, MainLauncher = true, ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.UiMode)]
+        public class MainActivity : AvaloniaMainActivity
+        {
+        }
+        '@ | Out-File -FilePath "Properties\MainActivity.cs" -Encoding utf8
+
+    # 4. RESTORE PAKSA: Mengunci parameter global target platform secara tertulis di command bar
+    - name: Restore Dependencies Direct
+      run: |
+        dotnet restore UABEAndroidApp.csproj -p:TargetFramework=net8.0-android34.0 -p:TargetPlatformIdentifier=android -p:CheckEolWorkloads=false --force
+
+    # 5. COMPILE PAKSA: Merakit langsung biner menjadi berkas APK
+    - name: Compile APK Direct
+      run: |
+        dotnet publish UABEAndroidApp.csproj -c Release -f net8.0-android34.0 --no-restore -p:TargetPlatformIdentifier=android -p:CheckEolWorkloads=false
+
+    # 6. Mengunggah hasil berkas APK final Anda
+    - name: Upload APK Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: UABEAvalonia-Android-APK
+        path: bin\Release\net8.0-android34.0\*Signed.apk
+        
