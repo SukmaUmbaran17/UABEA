@@ -27,14 +27,13 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # 1. SAPU BERSIH: Menghapus file .slnx dan .sln desktop di folder absolut server agar tidak bentrok
+    # 1. SAPU BERSIH: Menghapus file .slnx dan .sln desktop bawaan PC agar tidak membingungkan server
     - name: Wipe All Desktop Interventions
       run: |
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.slnx -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.sln -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
-        New-Item -ItemType Directory -Force -Path "UABEAndroidMurni"
 
-    # 2. Membuat file Proyek Android Resmi yang bersih
+    # 2. Membuat file Proyek Android langsung di folder depan (Root Utama)
     - name: Create Clean Android Project
       run: |
         @'
@@ -52,45 +51,45 @@ jobs:
             <PackageReference Include="Avalonia.Android" Version="11.0.10" />
           </ItemGroup>
         </Project>
-        '@ | Out-File -FilePath "UABEAndroidMurni\UABEAndroidMurni.csproj" -Encoding utf8
+        '@ | Out-File -FilePath "UABEAndroidApp.csproj" -Encoding utf8
 
-    # 3. Membuat file kode pemicu (Main) kosong yang wajib ada di aplikasi Android
+    # 3. Membuat file kode pemicu (Main) di folder Properties depan
     - name: Create Dummy MainActivity
       run: |
-        New-Item -ItemType Directory -Force -Path "UABEAndroidMurni\Properties"
+        New-Item -ItemType Directory -Force -Path "Properties"
         @'
         using Android.App;
         using Android.Content.PM;
         using Avalonia.Android;
 
-        namespace UABEAndroidMurni;
+        namespace UABEAndroidApp;
 
         [Activity(Label = "UABE Android", DocumentLaunchMode = DocumentLaunchMode.Always, MainLauncher = true, ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize | ConfigChanges.UiMode)]
         public class MainActivity : AvaloniaMainActivity
         {
         }
-        '@ | Out-File -FilePath "UABEAndroidMurni\MainActivity.cs" -Encoding utf8
+        '@ | Out-File -FilePath "Properties\MainActivity.cs" -Encoding utf8
 
-    # 4. MEMBUAT SOLUSI: Mengunci format penulisan jalur menggunakan tanda backslash (\) khusus Windows Server
+    # 4. MEMBUAT SOLUSI: Membuat file solusi langsung menempel di folder depan tanpa sub-folder
     - name: Generate Official Mobile Solution File
       run: |
-        dotnet new sln -n UABEAndroidMurni --output UABEAndroidMurni
-        dotnet sln UABEAndroidMurni\UABEAndroidMurni.sln add UABEAndroidMurni\UABEAndroidMurni.csproj
+        dotnet new sln -n UABEAndroidApp
+        dotnet sln UABEAndroidApp.sln add UABEAndroidApp.csproj
 
-    # 5. RESTORE: Melakukan Restore menembak file solusi lewat jalur Windows murni
+    # 5. RESTORE: Melakukan Restore instan pada file solusi di halaman depan
     - name: Restore Dependencies
       run: |
-        dotnet restore UABEAndroidMurni\UABEAndroidMurni.sln -p:CheckEolWorkloads=false --force
+        dotnet restore UABEAndroidApp.sln -p:CheckEolWorkloads=false --force
 
-    # 6. COMPILE: Merakit proyek dari dalam folder terpusat menjadi berkas APK
+    # 6. COMPILE: Merakit proyek di halaman depan langsung menjadi berkas APK
     - name: Compile APK
       run: |
-        dotnet publish UABEAndroidMurni\UABEAndroidMurni.sln -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
+        dotnet publish UABEAndroidApp.sln -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
 
     # 7. Mengunggah hasil berkas APK final Anda
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: UABEAvalonia-Android-APK
-        path: UABEAndroidMurni\bin\Release\net8.0-android\*Signed.apk
+        path: bin\Release\net8.0-android\*Signed.apk
         
