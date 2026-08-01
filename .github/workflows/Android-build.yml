@@ -29,7 +29,16 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # KITA BUAT FOLDER TERISOLASI AGAR SISTEM .NET TIDAK BISA MENGINTIP FILE .SLN DESKTOP
+    # TAKTIK SAKTI: Memaksa file proyek induk (Desktop) untuk menerima target biner Android modern
+    - name: Patch Parent Project Framework
+      run: |
+        $path = "UABEAvalonia\UABEAvalonia.csproj"
+        $content = Get-Content $path
+        # Menyisipkan target Android ke dalam struktur utama proyek induk agar sinkron
+        $content = $content -replace "<TargetFrameworks>net8.0</TargetFrameworks>", "<TargetFrameworks>net8.0;net8.0-android34.0</TargetFrameworks>"
+        $content | Out-File $path -Encoding utf8
+
+    # Membuat file proyek aplikasi mobile mandiri
     - name: Create Isolated Android Project Folder
       run: |
         New-Item -ItemType Directory -Force -Path "MobileAppIsolated"
@@ -48,23 +57,22 @@ jobs:
           </PropertyGroup>
           <ItemGroup>
             <PackageReference Include="Avalonia.Android" Version="11.0.10" />
-            <!-- Melompat satu folder keluar untuk mengambil logika inti UABEA asli -->
             <ProjectReference Include="..\UABEAvalonia\UABEAvalonia.csproj" />
           </ItemGroup>
         </Project>
         '@ | Out-File -FilePath "MobileAppIsolated\UABEAvaloniaAndroidApp.csproj" -Encoding utf8
 
-    # RESTORE DI FOLDER TERISOLASI
+    # Melakukan Restore dengan penguncian parameter global di seluruh arsitektur proyek
     - name: Restore Dependencies
       run: |
-        dotnet restore MobileAppIsolated\UABEAvaloniaAndroidApp.csproj -p:CheckEolWorkloads=false --force
+        dotnet restore MobileAppIsolated\UABEAvaloniaAndroidApp.csproj -p:TargetFramework=net8.0-android34.0 -p:CheckEolWorkloads=false --force
 
-    # MERAKIT LANGSUNG MENJADI APK
+    # Merakit kode biner menjadi aplikasi APK utuh
     - name: Compile APK
       run: |
         dotnet publish MobileAppIsolated\UABEAvaloniaAndroidApp.csproj -c Release -f net8.0-android34.0 --no-restore -p:CheckEolWorkloads=false
 
-    # MENGUNGGAH FILE APK HASIL COMPILE
+    # Mengunggah berkas APK yang sudah ditandatangani otomatis
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
