@@ -24,9 +24,6 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    - name: Install Android Workload
-      run: dotnet workload install android
-
     # 1. SAPU BERSIH: Menghapus sisa file solusi desktop di folder server agar tidak mengunci mode PC
     - name: Wipe All Desktop Interventions
       run: |
@@ -45,7 +42,11 @@ jobs:
         }
         '@ | Out-File -FilePath "global.json" -Encoding utf8
 
-    # 3. Membuat file Proyek Android murni dengan deklarasi platform yang ketat
+    # 3. PASANG WORKLOAD BARU: Menginstal SDK Android tepat di dalam lingkungan terisolasi global.json
+    - name: Install Android Workload
+      run: dotnet workload install android
+
+    # 4. Membuat file Proyek Android murni dengan deklarasi platform yang ketat
     - name: Create Clean Android Project
       run: |
         @'
@@ -66,7 +67,7 @@ jobs:
         </Project>
         '@ | Out-File -FilePath "UABEAndroidApp.csproj" -Encoding utf8
 
-    # 4. Membuat file kode pemicu (Main) di folder Properties depan
+    # 5. Membuat file kode pemicu (Main) di folder Properties depan
     - name: Create Dummy MainActivity
       run: |
         New-Item -ItemType Directory -Force -Path "Properties"
@@ -83,17 +84,18 @@ jobs:
         }
         '@ | Out-File -FilePath "Properties\MainActivity.cs" -Encoding utf8
 
-    # 5. RESTORE AMAN: Menghapus cache biner lokal agar terhindar dari sisa ingatan error kemarin
+    # 6. RESTORE AMAN: Melakukan Restore dependencies langsung ke berkas proyek mandiri
     - name: Restore Dependencies Direct
       run: |
+        dotnet workload restore UABEAndroidApp.csproj
         dotnet restore UABEAndroidApp.csproj --no-cache -p:CheckEolWorkloads=false
 
-    # 6. COMPILE UTAMA: Merakit berkas menjadi aplikasi APK utuh
+    # 7. COMPILE UTAMA: Merakit berkas menjadi aplikasi APK utuh
     - name: Compile APK Direct
       run: |
         dotnet publish UABEAndroidApp.csproj -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
 
-    # 7. UPLOAD FINAL: Memperbaiki nama plugin resmi (upload-artifact) agar APK berhasil diterbitkan
+    # 8. UPLOAD FINAL: Mengunggah hasil berkas APK final Anda
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
