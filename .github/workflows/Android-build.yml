@@ -29,12 +29,13 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # MENYUNTIKKAN EMULASI BYPASS CHECK EOL WORKLOAD AGAR REKAYASA BINER DIPASTIKAN LOLOS
+    # KITA BUAT FILE PROYEK YANG SANGAT KETAT DI FOLDER ROOT UTAMA
     - name: Force Create Android Project File
       run: |
         @'
         <Project Sdk="Microsoft.NET.Sdk">
           <PropertyGroup>
+            <!-- Mengunci paksa target ke API modern level 34 secara mutlak -->
             <TargetFramework>net8.0-android34.0</TargetFramework>
             <SupportedOSPlatformVersion>31</SupportedOSPlatformVersion>
             <OutputType>Exe</OutputType>
@@ -43,7 +44,6 @@ jobs:
             <ApplicationId>com.sukma.uabea.android</ApplicationId>
             <ApplicationVersion>1</ApplicationVersion>
             <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-            <!-- SUNTIKAN SAKTI: Memaksa server mengabaikan pemblokiran framework lama -->
             <CheckEolWorkloads>false</CheckEolWorkloads>
           </PropertyGroup>
           <ItemGroup>
@@ -53,10 +53,12 @@ jobs:
         </Project>
         '@ | Out-File -FilePath "UABEAvaloniaAndroidApp.csproj" -Encoding utf8
 
+    # FORCE RESTORE: Menghapus cache lama dan mengunci target framework agar tidak lari ke API 21
     - name: Restore Dependencies
       run: |
-        dotnet restore UABEAvaloniaAndroidApp.csproj -p:CheckEolWorkloads=false
+        dotnet restore UABEAvaloniaAndroidApp.csproj -p:TargetFramework=net8.0-android34.0 -p:CheckEolWorkloads=false --force
 
+    # KOMPILASI UTAMA: Merakit langsung tanpa mengintip berkas solusi bawaan desktop
     - name: Compile APK
       run: |
         dotnet publish UABEAvaloniaAndroidApp.csproj -c Release -f net8.0-android34.0 --no-restore -p:CheckEolWorkloads=false
