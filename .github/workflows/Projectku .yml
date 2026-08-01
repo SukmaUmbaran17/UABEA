@@ -33,13 +33,13 @@ jobs:
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.slnx -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.sln -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
 
-    # 2. Membuat file Proyek Android dasar langsung di root utama
+    # 2. SUNTIKAN SAKTI: Membuat file Proyek Android menggunakan SDK RAZOR agar kuncian desktop komputer hancur total
     - name: Create Clean Android Project
       run: |
         @'
-        <Project Sdk="Microsoft.NET.Sdk">
+        <Project Sdk="Microsoft.NET.Sdk.Razor">
           <PropertyGroup>
-            <TargetFramework>net8.0-android34.0</TargetFramework>
+            <TargetFramework>net8.0-android</TargetFramework>
             <SupportedOSPlatformVersion>31</SupportedOSPlatformVersion>
             <OutputType>Library</OutputType>
             <Nullable>enable</Nullable>
@@ -70,20 +70,20 @@ jobs:
         }
         '@ | Out-File -FilePath "Properties\MainActivity.cs" -Encoding utf8
 
-    # 4. RESTORE PAKSA: Mengunci parameter global target platform secara tertulis di command bar
+    # 4. RESTORE PAKSA: Melakukan Restore dependencies langsung ke berkas proyek mandiri
     - name: Restore Dependencies Direct
       run: |
-        dotnet restore UABEAndroidApp.csproj -p:TargetFramework=net8.0-android34.0 -p:TargetPlatformIdentifier=android -p:CheckEolWorkloads=false --force
+        dotnet restore UABEAndroidApp.csproj -p:CheckEolWorkloads=false --force
 
     # 5. COMPILE PAKSA: Merakit langsung biner menjadi berkas APK
     - name: Compile APK Direct
       run: |
-        dotnet publish UABEAndroidApp.csproj -c Release -f net8.0-android34.0 --no-restore -p:TargetPlatformIdentifier=android -p:CheckEolWorkloads=false
+        dotnet publish UABEAndroidApp.csproj -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
 
     # 6. Mengunggah hasil berkas APK final Anda
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: UABEAvalonia-Android-APK
-        path: bin\Release\net8.0-android34.0\*Signed.apk
+        path: bin\Release\net8.0-android\*Signed.apk
         
