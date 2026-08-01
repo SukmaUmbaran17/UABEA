@@ -27,10 +27,11 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # 1. Bersihkan sisa-sisa file biner komputer lama dari server
-    - name: Wipe Desktop Files from Runner
+    # 1. MEMUSNAHKAN BOS TERAKHIR (.slnx) agar server tidak bisa mengunci mode desktop lagi
+    - name: Wipe All Desktop Interventions
       run: |
         if (Test-Path "UABEAvalonia.sln") { Remove-Item "UABEAvalonia.sln" -Force }
+        if (Test-Path "UABEAvaloniaMurni.slnx") { Remove-Item "UABEAvaloniaMurni.slnx" -Force }
         if (Test-Path "UABEAvalonia") { Remove-Item "UABEAvalonia" -Recurse -Force }
         New-Item -ItemType Directory -Force -Path "UABEAndroidMurni"
 
@@ -71,22 +72,21 @@ jobs:
         }
         '@ | Out-File -FilePath "UABEAndroidMurni\MainActivity.cs" -Encoding utf8
 
-    # 4. Membiarkan sistem mencari file .sln secara otomatis tanpa penulisan manual
+    # 4. Membuat file Solusi (.sln) baru yang murni mobile
     - name: Generate Official Mobile Solution File
       run: |
         dotnet new sln -n UABEAndroidMurni
-        dotnet sln add UABEAndroidMurni/UABEAndroidMurni.csproj    
+        dotnet sln add UABEAndroidMurni/UABEAndroidMurni.csproj
 
-     # 5. Melakukan Restore otomatis tanpa menyebutkan nama file .sln
+    # 5. Melakukan Restore murni tanpa intervensi berkas .slnx desktop bawaan
     - name: Restore Dependencies
       run: |
         dotnet restore -p:CheckEolWorkloads=false --force
 
-    # 6. Merakit langsung file solusi yang aktif di server Windows
+    # 6. Merakit seluruh berkas lewat jalur Solusi Resmi menjadi file APK
     - name: Compile APK
       run: |
         dotnet publish -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
-        
 
     # 7. Mengunggah hasil berkas APK final Anda
     - name: Upload APK Artifact
