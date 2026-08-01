@@ -29,13 +29,26 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # TAKTIK PARIPURNA: Hapus file solusi dan file proyek desktop agar tidak memicu error bentrokan
+    # 1. Hapus intervensi berkas desktop lama
     - name: Remove Desktop Interventions
       run: |
         if (Test-Path "UABEAvalonia.sln") { Remove-Item "UABEAvalonia.sln" -Force }
         if (Test-Path "UABEAvalonia\UABEAvalonia.csproj") { Remove-Item "UABEAvalonia\UABEAvalonia.csproj" -Force }
 
-    # Membuat proyek Android murni tanpa ketergantungan berkas luar
+    # 2. FORCE MANIFEST: Membuat identitas Android asli agar compiler .NET tidak bisa mengelak
+    - name: Force Create Android Manifest
+      run: |
+        New-Item -ItemType Directory -Force -Path "Properties"
+        @'
+        <?xml version="1.0" encoding="utf-8"?>
+        <manifest xmlns:android="http://android.com" package="com.sukma.uabea.android" android:versionCode="1" android:versionName="1.0">
+            <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
+            <application android:label="UABE Android" android:allowBackup="true" android:icon="@mipmap/ic_launcher">
+            </application>
+        </manifest>
+        '@ | Out-File -FilePath "Properties\AndroidManifest.xml" -Encoding utf8
+
+    # 3. Membuat berkas proyek Android mandiri
     - name: Create Self-Contained Android Project File
       run: |
         @'
@@ -47,31 +60,27 @@ jobs:
             <Nullable>enable</Nullable>
             <ImplicitUsings>enable</ImplicitUsings>
             <ApplicationId>com.sukma.uabea.android</ApplicationId>
-            <ApplicationVersion>1</ApplicationVersion>
-            <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
             <CheckEolWorkloads>false</CheckEolWorkloads>
           </PropertyGroup>
           <ItemGroup>
             <PackageReference Include="Avalonia.Android" Version="11.0.10" />
-            
-            <!-- Mengambil paksa seluruh file kode C# dan aset XAML dari folder UABEAvalonia asli -->
             <Compile Include="UABEAvalonia\**\*.cs" />
             <AvaloniaResource Include="UABEAvalonia\**\*.axaml" />
           </ItemGroup>
         </Project>
         '@ | Out-File -FilePath "UABEAvaloniaAndroidDirect.csproj" -Encoding utf8
 
-    # Melakukan Restore murni tanpa gangguan file solusi desktop bawaan
+    # 4. Melakukan Restore murni dengan identitas Android yang sudah valid
     - name: Restore Dependencies
       run: |
         dotnet restore UABEAvaloniaAndroidDirect.csproj -p:CheckEolWorkloads=false --force
 
-    # Merakit seluruh berkas menjadi aplikasi APK utuh
+    # 5. Merakit seluruh berkas menjadi aplikasi APK utuh
     - name: Compile APK
       run: |
         dotnet publish UABEAvaloniaAndroidDirect.csproj -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
 
-    # Mengunggah hasil berkas APK final Anda
+    # 6. Mengunggah hasil berkas APK final Anda
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
