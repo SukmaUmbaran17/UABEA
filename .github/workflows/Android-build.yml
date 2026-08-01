@@ -29,23 +29,9 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # TAKTIK PARIPURNA: Mengunci target Android 34 secara global untuk seluruh proyek lewat Directory.Build.props
-    - name: Force Global Framework Override
+    # TAKTIK PARIPURNA: Membuat proyek Android mandiri yang langsung merakit seluruh file C# inti UABE
+    - name: Create Self-Contained Android Project File
       run: |
-        @'
-        <Project>
-          <PropertyGroup>
-            <!-- Jika proyek mendeteksi target Android, paksa kunci ke versi API 34.0 dan matikan API 21 -->
-            <TargetFrameworks Condition="$(TargetFrameworks) == '' and '$(TargetFramework)' == ''">net8.0-android34.0</TargetFrameworks>
-            <CheckEolWorkloads>false</CheckEolWorkloads>
-          </PropertyGroup>
-        </Project>
-        '@ | Out-File -FilePath "Directory.Build.props" -Encoding utf8
-
-    # Membuat file proyek aplikasi mobile mandiri di folder terisolasi
-    - name: Create Isolated Android Project Folder
-      run: |
-        New-Item -ItemType Directory -Force -Path "MobileAppIsolated"
         @'
         <Project Sdk="Microsoft.NET.Sdk">
           <PropertyGroup>
@@ -57,28 +43,33 @@ jobs:
             <ApplicationId>com.sukma.uabea.android</ApplicationId>
             <ApplicationVersion>1</ApplicationVersion>
             <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+            <CheckEolWorkloads>false</CheckEolWorkloads>
           </PropertyGroup>
           <ItemGroup>
+            <!-- Memasang pustaka dasar Avalonia Mobile Android -->
             <PackageReference Include="Avalonia.Android" Version="11.0.10" />
-            <ProjectReference Include="..\UABEAvalonia\UABEAvalonia.csproj" />
+            
+            <!-- Mengambil paksa seluruh file kode C# dan aset XAML dari folder UABEAvalonia asli -->
+            <Compile Include="UABEAvalonia\**\*.cs" />
+            <AvaloniaResource Include="UABEAvalonia\**\*.axaml" />
           </ItemGroup>
         </Project>
-        '@ | Out-File -FilePath "MobileAppIsolated\UABEAvaloniaAndroidApp.csproj" -Encoding utf8
+        '@ | Out-File -FilePath "UABEAvaloniaAndroidDirect.csproj" -Encoding utf8
 
-    # Melakukan Restore dengan pembersihan cache total
+    # Melakukan Restore langsung pada file proyek mandiri yang baru
     - name: Restore Dependencies
       run: |
-        dotnet restore MobileAppIsolated\UABEAvaloniaAndroidApp.csproj --force
+        dotnet restore UABEAvaloniaAndroidDirect.csproj --force
 
-    # Merakit kode biner menjadi aplikasi APK utuh
+    # Merakit seluruh komponen biner langsung menjadi file APK utuh
     - name: Compile APK
       run: |
-        dotnet publish MobileAppIsolated\UABEAvaloniaAndroidApp.csproj -c Release -f net8.0-android34.0 --no-restore
+        dotnet publish UABEAvaloniaAndroidDirect.csproj -c Release -f net8.0-android34.0 --no-restore
 
-    # Mengunggah berkas APK hasil kompilasi akhir
+    # Mengunggah hasil berkas APK final Anda
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: UABEAvalonia-Android-APK
-        path: MobileAppIsolated\bin\Release\net8.0-android34.0\*Signed.apk
+        path: bin\Release\net8.0-android34.0\*Signed.apk
         
