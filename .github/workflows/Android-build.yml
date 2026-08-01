@@ -2,8 +2,9 @@ name: Build UABE Android APK
 
 on:
   push:
-    branches: [ "master", "main" ] # Memicu otomatis di branch master atau main
+    branches: [ "master" ] # Memastikan otomatis berjalan saat Anda save di branch master
   workflow_dispatch:
+  
 
 jobs:
   build-android:
