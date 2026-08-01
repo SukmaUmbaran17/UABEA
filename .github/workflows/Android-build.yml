@@ -29,17 +29,19 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # KITA PAKSA MENGGUNAKAN KONFIGURASI TIPE ANDROID CLASS LIBRARY AGAR RESTORE AMAN
+    # TAKTIK PARIPURNA: Hapus file solusi PC (.sln) agar MSBuild tidak bisa mengintip setelan desktop
+    - name: Remove Desktop Solution Interventions
+      run: |
+        if (Test-Path "UABEAvalonia.sln") { Remove-Item "UABEAvalonia.sln" -Force }
+
+    # Membuat proyek Android murni yang berdiri sendiri
     - name: Create Self-Contained Android Project File
       run: |
         @'
         <Project Sdk="Microsoft.NET.Sdk">
           <PropertyGroup>
-            <!-- Menggunakan format penulisan standar yang dimengerti compiler mobile -->
             <TargetFramework>net8.0-android</TargetFramework>
             <SupportedOSPlatformVersion>31</SupportedOSPlatformVersion>
-            <!-- Memaksa sistem memuat pustaka Android mobile SDK dasar secara internal -->
-            <UseMauiEssentials>true</UseMauiEssentials>
             <OutputType>Exe</OutputType>
             <Nullable>enable</Nullable>
             <ImplicitUsings>enable</ImplicitUsings>
@@ -51,14 +53,14 @@ jobs:
           <ItemGroup>
             <PackageReference Include="Avalonia.Android" Version="11.0.10" />
             
-            <!-- Memasukkan seluruh file biner UABE asli secara terisolasi -->
+            <!-- Mengambil paksa seluruh file kode C# dan aset XAML dari folder UABEAvalonia asli -->
             <Compile Include="UABEAvalonia\**\*.cs" />
             <AvaloniaResource Include="UABEAvalonia\**\*.axaml" />
           </ItemGroup>
         </Project>
         '@ | Out-File -FilePath "UABEAvaloniaAndroidDirect.csproj" -Encoding utf8
 
-    # Melakukan Restore dengan mematikan intervensi file solusi desktop bawaan
+    # Melakukan Restore murni tanpa gangguan file solusi desktop bawaan
     - name: Restore Dependencies
       run: |
         dotnet restore UABEAvaloniaAndroidDirect.csproj -p:CheckEolWorkloads=false --force
