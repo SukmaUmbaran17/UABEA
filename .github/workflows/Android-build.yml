@@ -52,10 +52,11 @@ jobs:
         </Project>
         '@ | Out-File -FilePath "UABEAvalonia.Android\UABEAvalonia.Android.csproj" -Encoding utf8
 
-    # Menambahkan retry otomatis untuk mengatasi koneksi internet server yang sempat terputus
+    # Menghapus --retry-limit agar MSBuild Windows tidak bingung
     - name: Restore Dependencies (With Retry)
       run: |
-        dotnet restore UABEAvalonia.Android\UABEAvalonia.Android.csproj --retry-limit 3
+        dotnet restore UABEAvalonia.Android\UABEAvalonia.Android.csproj
+        
 
     - name: Compile APK
       run: |
