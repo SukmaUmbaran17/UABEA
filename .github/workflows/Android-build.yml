@@ -2,13 +2,12 @@ name: Build UABE Android APK
 
 on:
   push:
-    branches: [ "master" ] # Memastikan otomatis berjalan saat Anda save di branch master
+    branches: [ "master", "main" ]
   workflow_dispatch:
-  
 
 jobs:
   build-android:
-    runs-on: windows-latest # DIUBAH KE WINDOWS karena SDK .NET Android jauh lebih stabil tanpa error sertifikat NuGet
+    runs-on: windows-latest
 
     steps:
     - name: Checkout Code
@@ -22,26 +21,49 @@ jobs:
         java-version: '17'
         distribution: 'microsoft'
 
-    # Memasang .NET SDK versi 8 yang stabil
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
-        
-    # 4. Memasang Android Workload standar tanpa argumen tambahan
+
     - name: Install Android Workload
       run: dotnet workload install android
 
-    - name: Restore Dependencies
-      run: dotnet restore UABEAvalonia/UABEAvalonia.Android/UABEAvalonia.Android.csproj
+    # LANGKAH FORCE: Membuat file .csproj yang benar langsung di lokasi yang dicari server
+    - name: Force Create Correct Android Project File
+      run: |
+        New-Item -ItemType Directory -Force -Path "UABEAvalonia.Android"
+        @'
+        <Project Sdk="Microsoft.NET.Sdk">
+          <PropertyGroup>
+            <TargetFramework>net8.0-android34.0</TargetFramework>
+            <SupportedOSPlatformVersion>31</SupportedOSPlatformVersion>
+            <OutputType>Exe</OutputType>
+            <Nullable>enable</Nullable>
+            <ImplicitUsings>enable</ImplicitUsings>
+            <ApplicationId>com.sukma.uabea.android</ApplicationId>
+            <ApplicationVersion>1</ApplicationVersion>
+            <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+          </PropertyGroup>
+          <ItemGroup>
+            <PackageReference Include="Avalonia.Android" Version="11.0.10" />
+            <ProjectReference Include="..\UABEAvalonia\UABEAvalonia.csproj" />
+          </ItemGroup>
+        </Project>
+        '@ | Out-File -FilePath "UABEAvalonia.Android\UABEAvalonia.Android.csproj" -Encoding utf8
+
+    # Menambahkan retry otomatis untuk mengatasi koneksi internet server yang sempat terputus
+    - name: Restore Dependencies (With Retry)
+      run: |
+        dotnet restore UABEAvalonia.Android\UABEAvalonia.Android.csproj --retry-limit 3
 
     - name: Compile APK
       run: |
-        dotnet publish UABEAvalonia/UABEAvalonia.Android/UABEAvalonia.Android.csproj -c Release -f net8.0-android --no-restore
+        dotnet publish UABEAvalonia.Android\UABEAvalonia.Android.csproj -c Release -f net8.0-android34.0 --no-restore
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: UABEAvalonia-Android-APK
-        path: UABEAvalonia/UABEAvalonia.Android/bin/Release/net8.0-android/*-Signed.apk
+        path: UABEAvalonia.Android\bin\Release\net8.0-android34.0\*Signed.apk
         
