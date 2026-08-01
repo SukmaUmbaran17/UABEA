@@ -29,7 +29,7 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # KITA PAKSA BUAT FILE .CSPROJ DI ROOT (FOLDER UTAMA) AGAR TIDAK BISA DIABAIKAN SERVER
+    # MENYUNTIKKAN EMULASI BYPASS CHECK EOL WORKLOAD AGAR REKAYASA BINER DIPASTIKAN LOLOS
     - name: Force Create Android Project File
       run: |
         @'
@@ -43,6 +43,8 @@ jobs:
             <ApplicationId>com.sukma.uabea.android</ApplicationId>
             <ApplicationVersion>1</ApplicationVersion>
             <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+            <!-- SUNTIKAN SAKTI: Memaksa server mengabaikan pemblokiran framework lama -->
+            <CheckEolWorkloads>false</CheckEolWorkloads>
           </PropertyGroup>
           <ItemGroup>
             <PackageReference Include="Avalonia.Android" Version="11.0.10" />
@@ -51,15 +53,13 @@ jobs:
         </Project>
         '@ | Out-File -FilePath "UABEAvaloniaAndroidApp.csproj" -Encoding utf8
 
-    # Menjalankan Restore langsung menunjuk file proyek mandiri di luar Solution asli
     - name: Restore Dependencies
       run: |
-        dotnet restore UABEAvaloniaAndroidApp.csproj
+        dotnet restore UABEAvaloniaAndroidApp.csproj -p:CheckEolWorkloads=false
 
-    # Mengompilasi langsung file proyek tersebut
     - name: Compile APK
       run: |
-        dotnet publish UABEAvaloniaAndroidApp.csproj -c Release -f net8.0-android34.0 --no-restore
+        dotnet publish UABEAvaloniaAndroidApp.csproj -c Release -f net8.0-android34.0 --no-restore -p:CheckEolWorkloads=false
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
