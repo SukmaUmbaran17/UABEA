@@ -24,14 +24,10 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    # 1. SAPU BERSIH TOTAL: Menggunakan radar global untuk menghapus folder desktop bawaan PC
-    - name: Wipe All Desktop Interventions
-      run: |
-        Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.slnx -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
-        Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.sln -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
-        Get-ChildItem -Path "D:\a\UABEAvalonia\" -Directory -Filter "TexToolWrap" -Recurse -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+    - name: Install Android Workload
+      run: dotnet workload install android
 
-    # 2. GLOBAL JSON FORCE: Mengunci arsitektur SDK agar tidak melirik profil komputer desktop
+    # 1. GLOBAL JSON FORCE: Mengunci arsitektur SDK agar tidak melirik profil komputer desktop
     - name: Create Global JSON
       run: |
         @'
@@ -43,11 +39,7 @@ jobs:
         }
         '@ | Out-File -FilePath "global.json" -Encoding utf8
 
-    # 3. PASANG WORKLOAD: Memasang SDK Android di lingkungan steril
-    - name: Install Android Workload
-      run: dotnet workload install android
-
-    # 4. MEMBUAT PROYEK: Mengunci Exclude ketat agar folder TexToolWrap PC tidak diizinkan masuk ke memori Android
+    # 2. MEMBUAT PROYEK: Mengunci isolasi total agar compiler HANYA merakit file Properties bawaan Android kita
     - name: Create Clean Android Project
       run: |
         @'
@@ -61,22 +53,19 @@ jobs:
             <ApplicationId>com.sukma.uabea.android</ApplicationId>
             <AvaloniaUseCompiledBindings>false</AvaloniaUseCompiledBindings>
             <CheckEolWorkloads>false</CheckEolWorkloads>
+            <!-- SUNTIKAN SAKTI: Memutus hubungan massal total dari folder UABEAvalonia PC -->
             <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
             <EnableDefaultAvaloniaResourceItems>false</EnableDefaultAvaloniaResourceItems>
           </PropertyGroup>
           <ItemGroup>
             <PackageReference Include="Avalonia.Android" Version="11.0.10" />
-            
-            <!-- SUNTIKAN SAKTI: Menarik file C# & AXAML dengan melarang keras folder TexToolWrap ikut serta -->
-            <Compile Include="UABEAvalonia\**\*.cs" Exclude="UABEAvalonia\TexToolWrap\**\*" />
-            <AvaloniaResource Include="UABEAvalonia\**\*.axaml" Exclude="UABEAvalonia\TexToolWrap\**\*" />
-            <Content Remove="UABEAvalonia\TexToolWrap\**\*" />
-            <None Remove="UABEAvalonia\TexToolWrap\**\*" />
+            <!-- KITA KUNCI KETAT: Hanya boleh merakit file MainActivity Android murni kita sendiri -->
+            <Compile Include="Properties\MainActivity.cs" />
           </ItemGroup>
         </Project>
         '@ | Out-File -FilePath "UABEAndroidApp.csproj" -Encoding utf8
 
-    # 5. Membuat file kode pemicu (Main) di folder Properties depan
+    # 3. Membuat file kode pemicu (Main) di folder Properties depan
     - name: Create Dummy MainActivity
       run: |
         New-Item -ItemType Directory -Force -Path "Properties"
@@ -93,18 +82,18 @@ jobs:
         }
         '@ | Out-File -FilePath "Properties\MainActivity.cs" -Encoding utf8
 
-    # 6. RESTORE AMAN: Sinkronisasi akhir beban kerja Android
+    # 4. RESTORE AMAN: Sinkronisasi akhir beban kerja Android
     - name: Restore Dependencies Direct
       run: |
         dotnet workload restore UABEAndroidApp.csproj
         dotnet restore UABEAndroidApp.csproj --no-cache -p:CheckEolWorkloads=false
 
-    # 7. COMPILE UTAMA: Meluncurkan perakitan biner APK murni tanpa file sampah PC yang sudah dikunci Exclude
+    # 5. COMPILE UTAMA: Merakit biner menjadi berkas APK mentah tanpa menyentuh satu pun file PC
     - name: Compile APK Direct
       run: |
         dotnet publish UABEAndroidApp.csproj -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
 
-    # 8. UPLOAD FINAL: Menerbitkan berkas APK final Anda
+    # 6. UPLOAD FINAL: Menerbitkan berkas APK final Anda
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
