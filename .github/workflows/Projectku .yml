@@ -24,12 +24,11 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
-    # 1. SAPU BERSIH TOTAL: Menggunakan radar global untuk memburu dan menghapus semua folder TexToolWrap di server
+    # 1. SAPU BERSIH TOTAL: Menggunakan radar global untuk menghapus folder desktop bawaan PC
     - name: Wipe All Desktop Interventions
       run: |
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.slnx -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.sln -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
-        # Radar Berburu folder TexToolWrap di sub-folder terdalam sekalipun dan menghapusnya secara fisik
         Get-ChildItem -Path "D:\a\UABEAvalonia\" -Directory -Filter "TexToolWrap" -Recurse -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
 
     # 2. GLOBAL JSON FORCE: Mengunci arsitektur SDK agar tidak melirik profil komputer desktop
@@ -48,7 +47,7 @@ jobs:
     - name: Install Android Workload
       run: dotnet workload install android
 
-    # 4. MEMBUAT PROYEK: File proyek bersih yang fokus membaca sisa aset C# setelah file PC dimusnahkan
+    # 4. MEMBUAT PROYEK: Mengunci Exclude ketat agar folder TexToolWrap PC tidak diizinkan masuk ke memori Android
     - name: Create Clean Android Project
       run: |
         @'
@@ -67,8 +66,12 @@ jobs:
           </PropertyGroup>
           <ItemGroup>
             <PackageReference Include="Avalonia.Android" Version="11.0.10" />
-            <Compile Include="UABEAvalonia\**\*.cs" />
-            <AvaloniaResource Include="UABEAvalonia\**\*.axaml" />
+            
+            <!-- SUNTIKAN SAKTI: Menarik file C# & AXAML dengan melarang keras folder TexToolWrap ikut serta -->
+            <Compile Include="UABEAvalonia\**\*.cs" Exclude="UABEAvalonia\TexToolWrap\**\*" />
+            <AvaloniaResource Include="UABEAvalonia\**\*.axaml" Exclude="UABEAvalonia\TexToolWrap\**\*" />
+            <Content Remove="UABEAvalonia\TexToolWrap\**\*" />
+            <None Remove="UABEAvalonia\TexToolWrap\**\*" />
           </ItemGroup>
         </Project>
         '@ | Out-File -FilePath "UABEAndroidApp.csproj" -Encoding utf8
@@ -96,7 +99,7 @@ jobs:
         dotnet workload restore UABEAndroidApp.csproj
         dotnet restore UABEAndroidApp.csproj --no-cache -p:CheckEolWorkloads=false
 
-    # 7. COMPILE UTAMA: Meluncurkan perakitan biner APK murni tanpa file sampah PC yang sudah diburu global
+    # 7. COMPILE UTAMA: Meluncurkan perakitan biner APK murni tanpa file sampah PC yang sudah dikunci Exclude
     - name: Compile APK Direct
       run: |
         dotnet publish UABEAndroidApp.csproj -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
