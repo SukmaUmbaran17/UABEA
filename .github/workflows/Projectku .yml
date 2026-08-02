@@ -39,7 +39,7 @@ jobs:
         }
         '@ | Out-File -FilePath "global.json" -Encoding utf8
 
-    # 2. MEMBUAT PROYEK: Mengunci isolasi total agar compiler HANYA merakit file Properties bawaan Android kita
+    # 2. MEMBUAT PROYEK: File proyek mandiri murni tanpa melirik folder eksternal komputer PC
     - name: Create Clean Android Project
       run: |
         @'
@@ -53,13 +53,11 @@ jobs:
             <ApplicationId>com.sukma.uabea.android</ApplicationId>
             <AvaloniaUseCompiledBindings>false</AvaloniaUseCompiledBindings>
             <CheckEolWorkloads>false</CheckEolWorkloads>
-            <!-- SUNTIKAN SAKTI: Memutus hubungan massal total dari folder UABEAvalonia PC -->
             <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
             <EnableDefaultAvaloniaResourceItems>false</EnableDefaultAvaloniaResourceItems>
           </PropertyGroup>
           <ItemGroup>
             <PackageReference Include="Avalonia.Android" Version="11.0.10" />
-            <!-- KITA KUNCI KETAT: Hanya boleh merakit file MainActivity Android murni kita sendiri -->
             <Compile Include="Properties\MainActivity.cs" />
           </ItemGroup>
         </Project>
@@ -82,18 +80,26 @@ jobs:
         }
         '@ | Out-File -FilePath "Properties\MainActivity.cs" -Encoding utf8
 
-    # 4. RESTORE AMAN: Sinkronisasi akhir beban kerja Android
+    # 4. TAKTIK PEMUSNAHAN FISIK TOTAL: Hapus seluruh folder bawaan PC agar fitur auto-include Android lumpuh total
+    - name: Erase All PC Files Physically
+      run: |
+        Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.slnx -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
+        Get-ChildItem -Path "D:\a\UABEAvalonia\" -Filter *.sln -Recurse -ErrorAction SilentlyContinue | Remove-Item -Force
+        # Menghapus total folder UABEAvalonia komputer PC agar server tidak bisa mencuri file .so lagi
+        if (Test-Path "UABEAvalonia") { Remove-Item "UABEAvalonia" -Recurse -Force }
+
+    # 5. RESTORE AMAN: Sinkronisasi akhir beban kerja Android pada proyek steril
     - name: Restore Dependencies Direct
       run: |
         dotnet workload restore UABEAndroidApp.csproj
         dotnet restore UABEAndroidApp.csproj --no-cache -p:CheckEolWorkloads=false
 
-    # 5. COMPILE UTAMA: Merakit biner menjadi berkas APK mentah tanpa menyentuh satu pun file PC
+    # 6. COMPILE UTAMA: Merakit biner menjadi berkas APK mentah tanpa ada file PC yang tersisa
     - name: Compile APK Direct
       run: |
         dotnet publish UABEAndroidApp.csproj -c Release -f net8.0-android --no-restore -p:CheckEolWorkloads=false
 
-    # 6. UPLOAD FINAL: Menerbitkan berkas APK final Anda
+    # 7. UPLOAD FINAL: Menerbitkan berkas APK final Anda
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
