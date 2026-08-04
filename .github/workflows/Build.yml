@@ -22,11 +22,11 @@ jobs:
       - name: Install Android Workload
         run: dotnet workload install android
 
-      - name: Restore
-        run: dotnet restore
+      - name: Restore Android
+        run: dotnet restore UABEAvalonia.Android/UABEAvalonia.Android.csproj
 
-      - name: Build
-        run: dotnet build -c Release
+      - name: Build Android
+        run: dotnet build UABEAvalonia.Android/UABEAvalonia.Android.csproj -c Release --no-restore
 
       - name: Upload Build Output
         uses: actions/upload-artifact@v4
