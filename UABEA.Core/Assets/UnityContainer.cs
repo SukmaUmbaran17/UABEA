@@ -8,7 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace UABEAvalonia
+namespace UABEA.core
 {
     public class UnityContainer
     {
