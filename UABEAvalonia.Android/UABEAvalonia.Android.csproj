@@ -1,20 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <!-- Memaksa framework menggunakan API modern agar klop dengan Avalonia 11 -->
-    <TargetFramework>net8.0-android34.0</TargetFramework>
-    <SupportedOSPlatformVersion>31</SupportedOSPlatformVersion>
+    <TargetFramework>net8.0-android</TargetFramework>
     <OutputType>Exe</OutputType>
+
+    <UseMaui>false</UseMaui>
+
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <ApplicationId>com.sukma.uabea.android</ApplicationId>
-    <ApplicationVersion>1</ApplicationVersion>
-    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+
+    <ApplicationTitle>UABEA Android</ApplicationTitle>
+    <ApplicationId>com.uabea.android</ApplicationId>
+
+    <SupportedOSPlatformVersion>21</SupportedOSPlatformVersion>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Avalonia.Android" Version="11.0.10" />
-    
-    <!-- Menghubungkan langsung ke file inti UABEA yang ada di folder sebelah -->
-    <ProjectReference Include="..\UABEAvalonia\UABEAvalonia.csproj" />
-  </ItemGroup>
 </Project>
