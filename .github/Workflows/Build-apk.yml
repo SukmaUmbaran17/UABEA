@@ -1,4 +1,4 @@
-name: UABEA Android Build
+name: UABEA Build-apk
 
 on:
   push:
