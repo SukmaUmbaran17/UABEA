@@ -2,10 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.uabea.android">
 
-    <uses-sdk
-        android:minSdkVersion="31"
-        android:targetSdkVersion="34" />
-
     <application
         android:label="UABEA Android"
         android:allowBackup="true"
