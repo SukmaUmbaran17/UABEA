@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace UABEA.core.Utils
+namespace UABEA.Core.Utils
 {
     public static class PathUtils
     {
