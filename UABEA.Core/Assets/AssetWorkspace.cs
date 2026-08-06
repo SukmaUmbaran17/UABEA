@@ -8,7 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace UABE.core.assets
+namespace UABE.core.Assets
 {
     public class AssetWorkspace
     {
