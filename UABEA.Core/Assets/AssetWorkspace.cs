@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using UABEA.Core.Configuration;
 
 namespace UABEA.Core.Assets
 {
