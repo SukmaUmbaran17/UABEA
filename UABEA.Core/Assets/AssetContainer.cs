@@ -3,7 +3,7 @@ using AssetsTools.NET.Extra;
 using System;
 using System.IO;
 
-namespace UABEA.Core
+namespace UABEA.core.Assets
 {
     // improvement over AssetExternal to handle dynamic changes
     // not to be confused with unity containers which are just
