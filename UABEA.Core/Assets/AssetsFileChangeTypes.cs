@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace UABEA.core
+namespace UABEA.core.Assets
 {
     public enum AssetsFileChangeTypes
     {
