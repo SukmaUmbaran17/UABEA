@@ -11,8 +11,32 @@ public class MainActivity : Activity
     {
         base.OnCreate(savedInstanceState);
 
-        var text = new TextView(this);
-        text.Text = "UABEA Android berhasil berjalan!";
-        SetContentView(text);
+        var layout = new LinearLayout(this)
+        {
+            Orientation = Orientation.Vertical
+        };
+
+        layout.SetPadding(40, 40, 40, 40);
+
+        var title = new TextView(this);
+        title.Text = "UABEA Android";
+        title.TextSize = 24;
+
+        var button = new Button(this);
+        button.Text = "Open Asset";
+
+        var status = new TextView(this);
+        status.Text = "Belum ada file dipilih.";
+
+        button.Click += (s, e) =>
+        {
+            status.Text = "Tombol Open ditekan.";
+        };
+
+        layout.AddView(title);
+        layout.AddView(button);
+        layout.AddView(status);
+
+        SetContentView(layout);
     }
 }
