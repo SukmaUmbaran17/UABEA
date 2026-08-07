@@ -1,4 +1,5 @@
 using Android.App;
+using Android.Content;
 using Android.OS;
 using Android.Widget;
 
@@ -7,6 +8,9 @@ namespace UABEAvalonia.Android;
 [Activity(Label = "UABEA Android", MainLauncher = true)]
 public class MainActivity : Activity
 {
+    private const int PickFileRequestCode = 1001;
+    private TextView? status;
+
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         base.OnCreate(savedInstanceState);
@@ -25,12 +29,16 @@ public class MainActivity : Activity
         var button = new Button(this);
         button.Text = "Open Asset";
 
-        var status = new TextView(this);
+        status = new TextView(this);
         status.Text = "Belum ada file dipilih.";
 
         button.Click += (s, e) =>
         {
-            status.Text = "Tombol Open ditekan.";
+            Intent intent = new Intent(Intent.ActionOpenDocument);
+            intent.AddCategory(Intent.CategoryOpenable);
+            intent.SetType("*/*");
+
+            StartActivityForResult(intent, PickFileRequestCode);
         };
 
         layout.AddView(title);
@@ -38,5 +46,19 @@ public class MainActivity : Activity
         layout.AddView(status);
 
         SetContentView(layout);
+    }
+
+    protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
+    {
+        base.OnActivityResult(requestCode, resultCode, data);
+
+        if (requestCode == PickFileRequestCode &&
+            resultCode == Result.Ok &&
+            data?.Data != null)
+        {
+            var uri = data.Data;
+
+            status!.Text = $"File dipilih:\n{uri}";
+        }
     }
 }
