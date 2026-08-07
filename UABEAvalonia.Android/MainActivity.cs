@@ -2,6 +2,9 @@ using Android.App;
 using Android.Content;
 using Android.OS;
 using Android.Widget;
+using System.IO;
+using AssetsTools.NET.Extra;
+using UABEA.Core.Assets;
 
 namespace UABEAvalonia.Android;
 
@@ -49,16 +52,45 @@ public class MainActivity : Activity
     }
 
     protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
-    {
-        base.OnActivityResult(requestCode, resultCode, data);
+{
+    base.OnActivityResult(requestCode, resultCode, data);
 
-        if (requestCode == PickFileRequestCode &&
-            resultCode == Result.Ok &&
-            data?.Data != null)
+    if (requestCode == PickFileRequestCode &&
+        resultCode == Result.Ok &&
+        data?.Data != null)
+    {
+        try
         {
             var uri = data.Data;
 
-            status!.Text = $"File dipilih:\n{uri}";
+            string fileName = "temp.assets";
+
+            var cursor = ContentResolver.Query(uri, null, null, null, null);
+
+            if (cursor != null)
+            {
+                int index = cursor.GetColumnIndex(Android.Provider.OpenableColumns.DisplayName);
+
+                if (cursor.MoveToFirst() && index >= 0)
+                    fileName = cursor.GetString(index);
+
+                cursor.Close();
+            }
+
+            string cachePath = Path.Combine(CacheDir.AbsolutePath, fileName);
+
+            using (var input = ContentResolver.OpenInputStream(uri))
+            using (var output = File.Create(cachePath))
+            {
+                input!.CopyTo(output);
+            }
+
+            status!.Text =
+                $"File berhasil disalin.\n\n{cachePath}";
+        }
+        catch (Exception ex)
+        {
+            status!.Text = ex.ToString();
         }
     }
 }
