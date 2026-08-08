@@ -61,7 +61,11 @@ public class MainActivity : Activity
         Result resultCode,
         Intent? data)
     {
-        base.OnActivityResult(requestCode, resultCode, data);
+        base.OnActivityResult(
+            requestCode,
+            resultCode,
+            data
+        );
 
         if (requestCode != PickFileRequestCode ||
             resultCode != Result.Ok ||
@@ -74,55 +78,88 @@ public class MainActivity : Activity
         {
             var uri = data.Data;
 
-            string fileName = "temp.assets";
+            string fileName = "temp.unity3d";
 
             string cachePath = Path.Combine(
                 CacheDir!.AbsolutePath,
                 fileName
             );
 
-            using (var input = ContentResolver!.OpenInputStream(uri))
-            using (var output = File.Create(cachePath))
+            using (var input =
+                   ContentResolver!.OpenInputStream(uri))
+            using (var output =
+                   File.Create(cachePath))
             {
                 if (input == null)
+                {
                     throw new Exception(
                         "Tidak dapat membuka file."
                     );
+                }
 
                 input.CopyTo(output);
             }
 
             status!.Text =
-                "⏳ Membuka file Unity...";
+                "⏳ Membuka AssetBundle...";
 
-            AssetsManager am = new AssetsManager();
+            AssetsManager am =
+                new AssetsManager();
 
-            AssetsFileInstance fileInst =
-                am.LoadAssetsFile(
+            BundleFileInstance bundle =
+                am.LoadBundleFile(
                     cachePath,
                     true
                 );
 
+            int assetFileCount =
+                bundle.file.BlockAndDirInfo.DirectoryInfos.Count;
+
+            int loadedCount = 0;
+
             AssetWorkspace workspace =
                 new AssetWorkspace(
                     am,
-                    false
+                    true
                 );
 
-            workspace.LoadAssetsFile(
-                fileInst,
-                true
-            );
+            for (int i = 0; i < assetFileCount; i++)
+            {
+                if (!bundle.file.IsAssetsFile(i))
+                    continue;
+
+                var directory =
+                    bundle.file.BlockAndDirInfo
+                        .DirectoryInfos[i];
+
+                var fileInst =
+                    am.LoadAssetsFileFromBundle(
+                        bundle,
+                        i,
+                        true
+                    );
+
+                if (fileInst == null)
+                    continue;
+
+                workspace.LoadAssetsFile(
+                    fileInst,
+                    true
+                );
+
+                loadedCount++;
+            }
 
             status!.Text =
-                $"✅ Asset berhasil dibuka!\n\n" +
+                $"✅ AssetBundle berhasil dibuka!\n\n" +
                 $"File: {fileName}\n" +
-                $"Assets: {workspace.LoadedAssets.Count}";
+                $"Assets File: {loadedCount}\n" +
+                $"Total Assets: {workspace.LoadedAssets.Count}";
         }
         catch (Exception ex)
         {
             status!.Text =
-                $"❌ Gagal membuka file Unity\n\n" +
+                $"❌ Gagal membuka AssetBundle\n\n" +
                 $"{ex.Message}";
         }
     }
