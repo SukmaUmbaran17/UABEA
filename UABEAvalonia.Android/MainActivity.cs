@@ -2,6 +2,7 @@ using Android.App;
 using Android.Content;
 using Android.OS;
 using Android.Widget;
+using System;
 using System.IO;
 
 namespace UABEAvalonia.Android;
@@ -10,6 +11,7 @@ namespace UABEAvalonia.Android;
 public class MainActivity : Activity
 {
     private const int PickFileRequestCode = 1001;
+
     private TextView? status;
 
     protected override void OnCreate(Bundle? savedInstanceState)
@@ -35,7 +37,7 @@ public class MainActivity : Activity
 
         button.Click += (s, e) =>
         {
-            Intent intent = new Intent(Intent.ActionOpenDocument);
+            var intent = new Intent(Intent.ActionOpenDocument);
             intent.AddCategory(Intent.CategoryOpenable);
             intent.SetType("*/*");
 
@@ -49,69 +51,49 @@ public class MainActivity : Activity
         SetContentView(layout);
     }
 
-    protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
-{
-    base.OnActivityResult(requestCode, resultCode, data);
-
-    if (requestCode == PickFileRequestCode &&
-        resultCode == Result.Ok &&
-        data?.Data != null)
+    protected override void OnActivityResult(
+        int requestCode,
+        Result resultCode,
+        Intent? data)
     {
+        base.OnActivityResult(requestCode, resultCode, data);
+
+        if (requestCode != PickFileRequestCode ||
+            resultCode != Result.Ok ||
+            data?.Data == null)
+        {
+            return;
+        }
+
         try
         {
             var uri = data.Data;
 
             string fileName = "temp.assets";
 
-            var cursor = ContentResolver.Query(uri, null, null, null, null);
+            string cachePath = Path.Combine(
+                CacheDir!.AbsolutePath,
+                fileName
+            );
 
-            using (var cursor = ContentResolver.Query(
-    uri,
-    new[] { global::Android.Provider.OpenableColumns.DisplayName },
-    null,
-    null,
-    null))
-{
-    if (cursor != null)
-    {
-        int index = cursor.GetColumnIndex(
-            global::Android.Provider.OpenableColumns.DisplayName);
-
-        if (cursor.MoveToFirst() && index >= 0)
-        {
-            fileName = cursor.GetString(index) ?? "temp.assets";
-        }
-    }
-}
-
-string cachePath = Path.Combine(
-    CacheDir?.AbsolutePath ?? string.Empty,
-    fileName);
-
-using var input = ContentResolver.OpenInputStream(uri);
-
-if (input == null)
-    throw new IOException("Tidak dapat membuka file yang dipilih.");
-
-using var output = File.Create(cachePath);
-
-input.CopyTo(output);
-
-            string cachePath = Path.Combine(CacheDir.AbsolutePath, fileName);
-
-            using (var input = ContentResolver.OpenInputStream(uri))
+            using (var input = ContentResolver!.OpenInputStream(uri))
             using (var output = File.Create(cachePath))
             {
-                input!.CopyTo(output);
+                if (input == null)
+                    throw new Exception("Tidak dapat membuka file.");
+
+                input.CopyTo(output);
             }
 
             status!.Text =
-                $"File berhasil disalin.\n\n{cachePath}";
+                $"✅ File berhasil disalin!\n\n" +
+                $"Nama: {fileName}\n" +
+                $"Path: {cachePath}";
         }
         catch (Exception ex)
         {
-            status!.Text = ex.ToString();
+            status!.Text =
+                $"❌ Gagal membuka file\n\n{ex.Message}";
         }
     }
-    }
-    }
+}
