@@ -65,15 +65,37 @@ public class MainActivity : Activity
 
             var cursor = ContentResolver.Query(uri, null, null, null, null);
 
-            if (cursor != null)
-            {
-                int index = cursor.GetColumnIndex(Android.Provider.OpenableColumns.DisplayName);
+            using (var cursor = ContentResolver.Query(
+    uri,
+    new[] { global::Android.Provider.OpenableColumns.DisplayName },
+    null,
+    null,
+    null))
+{
+    if (cursor != null)
+    {
+        int index = cursor.GetColumnIndex(
+            global::Android.Provider.OpenableColumns.DisplayName);
 
-                if (cursor.MoveToFirst() && index >= 0)
-                    fileName = cursor.GetString(index);
+        if (cursor.MoveToFirst() && index >= 0)
+        {
+            fileName = cursor.GetString(index) ?? "temp.assets";
+        }
+    }
+}
 
-                cursor.Close();
-            }
+string cachePath = Path.Combine(
+    CacheDir?.AbsolutePath ?? string.Empty,
+    fileName);
+
+using var input = ContentResolver.OpenInputStream(uri);
+
+if (input == null)
+    throw new IOException("Tidak dapat membuka file yang dipilih.");
+
+using var output = File.Create(cachePath);
+
+input.CopyTo(output);
 
             string cachePath = Path.Combine(CacheDir.AbsolutePath, fileName);
 
