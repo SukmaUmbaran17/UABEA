@@ -4,6 +4,8 @@ using Android.OS;
 using Android.Widget;
 using System;
 using System.IO;
+using AssetsTools.NET.Extra;
+using UABEA.Core.Assets;
 
 namespace UABEAvalonia.Android;
 
@@ -41,7 +43,10 @@ public class MainActivity : Activity
             intent.AddCategory(Intent.CategoryOpenable);
             intent.SetType("*/*");
 
-            StartActivityForResult(intent, PickFileRequestCode);
+            StartActivityForResult(
+                intent,
+                PickFileRequestCode
+            );
         };
 
         layout.AddView(title);
@@ -80,20 +85,45 @@ public class MainActivity : Activity
             using (var output = File.Create(cachePath))
             {
                 if (input == null)
-                    throw new Exception("Tidak dapat membuka file.");
+                    throw new Exception(
+                        "Tidak dapat membuka file."
+                    );
 
                 input.CopyTo(output);
             }
 
             status!.Text =
-                $"✅ File berhasil disalin!\n\n" +
-                $"Nama: {fileName}\n" +
-                $"Path: {cachePath}";
+                "⏳ Membuka file Unity...";
+
+            AssetsManager am = new AssetsManager();
+
+            AssetsFileInstance fileInst =
+                am.LoadAssetsFile(
+                    cachePath,
+                    true
+                );
+
+            AssetWorkspace workspace =
+                new AssetWorkspace(
+                    am,
+                    false
+                );
+
+            workspace.LoadAssetsFile(
+                fileInst,
+                true
+            );
+
+            status!.Text =
+                $"✅ Asset berhasil dibuka!\n\n" +
+                $"File: {fileName}\n" +
+                $"Assets: {workspace.LoadedAssets.Count}";
         }
         catch (Exception ex)
         {
             status!.Text =
-                $"❌ Gagal membuka file\n\n{ex.Message}";
+                $"❌ Gagal membuka file Unity\n\n" +
+                $"{ex.Message}";
         }
     }
 }
