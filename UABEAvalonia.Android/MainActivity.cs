@@ -3,8 +3,6 @@ using Android.Content;
 using Android.OS;
 using Android.Widget;
 using System.IO;
-using AssetsTools.NET.Extra;
-using UABEA.Core.Assets;
 
 namespace UABEAvalonia.Android;
 
