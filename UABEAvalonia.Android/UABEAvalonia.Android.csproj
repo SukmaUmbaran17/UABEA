@@ -16,14 +16,6 @@
     <PackageReference Include="Avalonia.Android" Version="11.0.10" />
 
     <ProjectReference Include="..\UABEA.Core\UABEA.Core.csproj" />
-
-    <Reference Include="AssetsTools.NET">
-      <HintPath>..\Libs\AssetsTools.NET.dll</HintPath>
-    </Reference>
-
-    <Reference Include="AssetsTools.NET.Extra">
-      <HintPath>..\Libs\AssetsTools.NET.Extra.dll</HintPath>
-    </Reference>
   </ItemGroup>
 
 </Project>
