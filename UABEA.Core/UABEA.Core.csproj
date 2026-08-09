@@ -17,6 +17,8 @@
 
     <PackageReference Include="AssetsTools.NET.MonoCecil" Version="3.0.4" />
 
+    <PackageReference Include="AssetsTools.NET.Extra" Version="3.0.4" />
+
   </ItemGroup>
 
 </Project>
