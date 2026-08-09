@@ -1,36 +1,125 @@
-name: UABEA Build-apk
+name: UABEA Android Build
 
 on:
   push:
     branches:
       - android-port
+
   workflow_dispatch:
 
 jobs:
-  build:
+  build-android:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout
+
+      # =========================================================
+      # 1. Ambil source code repository
+      # =========================================================
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+
+      # =========================================================
+      # 2. Install Java 17
+      # =========================================================
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+
+      # =========================================================
+      # 3. Install .NET 8
+      # =========================================================
       - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: '8.0.x'
 
-      - name: Install Android Workload
-        run: dotnet workload install android
 
-      - name: Restore Android
-        run: dotnet restore UABEAvalonia.Android/UABEAvalonia.Android.csproj
+      # =========================================================
+      # 4. Install Android workload
+      # =========================================================
+      - name: Install Android workload
+        shell: pwsh
+        run: |
+          dotnet workload install android
 
-      - name: Build Android
-        run: dotnet build UABEAvalonia.Android/UABEAvalonia.Android.csproj -c Release --no-restore
 
-      - name: Upload Build Output
+      # =========================================================
+      # 5. Download AssetsTools.NET libraries
+      # =========================================================
+      - name: Download AssetsTools.NET libraries
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path Libs
+
+          Invoke-WebRequest `
+            -Uri "https://github.com/nesrak1/UABEA/raw/master/Libs/AssetsTools.NET.dll" `
+            -OutFile "Libs/AssetsTools.NET.dll"
+
+          Invoke-WebRequest `
+            -Uri "https://github.com/nesrak1/UABEA/raw/master/Libs/AssetsTools.NET.Cpp2IL.dll" `
+            -OutFile "Libs/AssetsTools.NET.Cpp2IL.dll"
+
+          Invoke-WebRequest `
+            -Uri "https://github.com/nesrak1/UABEA/raw/master/Libs/AssetsTools.NET.MonoCecil.dll" `
+            -OutFile "Libs/AssetsTools.NET.MonoCecil.dll"
+
+          Invoke-WebRequest `
+            -Uri "https://github.com/nesrak1/UABEA/raw/master/Libs/AssetsTools.NET.Texture.dll" `
+            -OutFile "Libs/AssetsTools.NET.Texture.dll"
+
+
+      # =========================================================
+      # 6. Tampilkan library untuk memastikan DLL berhasil
+      # =========================================================
+      - name: Check AssetsTools.NET libraries
+        shell: pwsh
+        run: |
+          Write-Host "Isi folder Libs:"
+          Get-ChildItem Libs
+
+
+      # =========================================================
+      # 7. Restore project
+      # =========================================================
+      - name: Restore Android project
+        run: |
+          dotnet restore UABEAvalonia.Android/UABEAvalonia.Android.csproj
+
+
+      # =========================================================
+      # 8. Build APK
+      # =========================================================
+      - name: Build Android APK
+        run: |
+          dotnet build UABEAvalonia.Android/UABEAvalonia.Android.csproj -c Release --no-restore
+
+
+      # =========================================================
+      # 9. Cari APK hasil build
+      # =========================================================
+      - name: Find APK
+        shell: pwsh
+        run: |
+          Write-Host "Mencari APK..."
+
+          Get-ChildItem `
+            -Path . `
+            -Recurse `
+            -Filter *.apk |
+            Select-Object FullName
+
+
+      # =========================================================
+      # 10. Upload APK sebagai artifact
+      # =========================================================
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: build-output
+          name: UABEA-Android
           path: |
-            **/bin/Release/**
+            UABEAvalonia.Android/bin/Release/**/*.apk
