@@ -3,9 +3,13 @@ using Android.Content;
 using Android.OS;
 using Android.Provider;
 using Android.Widget;
+
+using AssetsTools.NET;
 using AssetsTools.NET.Extra;
+
 using System;
 using System.IO;
+using System.Text;
 
 namespace UABEAvalonia.Android;
 
@@ -19,10 +23,6 @@ public class MainActivity : Activity
 
     private TextView? status;
 
-    // =========================================================
-    // AssetsTools.NET
-    // =========================================================
-
     private AssetsManager? assetsManager;
 
 
@@ -31,7 +31,7 @@ public class MainActivity : Activity
         base.OnCreate(savedInstanceState);
 
         // =====================================================
-        // Inisialisasi AssetsManager
+        // AssetsTools.NET
         // =====================================================
 
         try
@@ -53,7 +53,7 @@ public class MainActivity : Activity
 
 
         // =====================================================
-        // Layout utama
+        // Layout
         // =====================================================
 
         var layout = new LinearLayout(this)
@@ -77,24 +77,12 @@ public class MainActivity : Activity
 
 
         // =====================================================
-        // Status
-        // =====================================================
-
-        status = new TextView(this)
-        {
-            Text = assetsManager != null
-                ? "✅ AssetsTools.NET berhasil dimuat.\n\nBelum ada file dipilih."
-                : "❌ AssetsTools.NET gagal dimuat."
-        };
-
-
-        // =====================================================
-        // Tombol Open Asset
+        // Tombol
         // =====================================================
 
         var button = new Button(this)
         {
-            Text = "Open Asset"
+            Text = "OPEN UNITY3D"
         };
 
         button.Click += (sender, e) =>
@@ -104,24 +92,29 @@ public class MainActivity : Activity
 
 
         // =====================================================
-        // Masukkan komponen ke layout
+        // Status
         // =====================================================
+
+        status = new TextView(this)
+        {
+            Text = assetsManager != null
+                ? "✅ AssetsTools.NET berhasil dimuat.\n\nPilih file .unity3d."
+                : "❌ AssetsTools.NET gagal dimuat."
+        };
+
+        status.TextSize = 16;
+
 
         layout.AddView(title);
         layout.AddView(button);
         layout.AddView(status);
-
-
-        // =====================================================
-        // Tampilkan layout
-        // =====================================================
 
         SetContentView(layout);
     }
 
 
     // =========================================================
-    // Membuka Android File Picker
+    // FILE PICKER
     // =========================================================
 
     private void OpenFilePicker()
@@ -136,8 +129,6 @@ public class MainActivity : Activity
                 Intent.CategoryOpenable
             );
 
-            // Untuk sementara semua file diperbolehkan.
-            // Nanti kita bisa membatasi file Unity.
             intent.SetType("*/*");
 
             StartActivityForResult(
@@ -147,18 +138,16 @@ public class MainActivity : Activity
         }
         catch (Exception ex)
         {
-            if (status != null)
-            {
-                status.Text =
-                    "❌ Gagal membuka File Picker\n\n" +
-                    ex.Message;
-            }
+            ShowStatus(
+                "❌ Gagal membuka File Picker\n\n" +
+                ex.Message
+            );
         }
     }
 
 
     // =========================================================
-    // Hasil File Picker
+    // HASIL FILE PICKER
     // =========================================================
 
     protected override void OnActivityResult(
@@ -173,32 +162,25 @@ public class MainActivity : Activity
         );
 
 
-        // Pastikan ini hasil File Picker
         if (requestCode != PickFileRequestCode)
             return;
 
 
-        // User membatalkan
         if (resultCode != Result.Ok)
         {
-            if (status != null)
-            {
-                status.Text =
-                    "Pemilihan file dibatalkan.";
-            }
+            ShowStatus(
+                "Pemilihan file dibatalkan."
+            );
 
             return;
         }
 
 
-        // Tidak ada URI
         if (data?.Data == null)
         {
-            if (status != null)
-            {
-                status.Text =
-                    "❌ File tidak ditemukan.";
-            }
+            ShowStatus(
+                "❌ File tidak ditemukan."
+            );
 
             return;
         }
@@ -206,138 +188,237 @@ public class MainActivity : Activity
 
         try
         {
-            // =================================================
-            // Ambil URI
-            // =================================================
-
-            var uri = data.Data;
-
-
-            // =================================================
-            // Ambil nama file
-            // =================================================
-
-            string fileName = "temp.assets";
-
-            using (var cursor = ContentResolver.Query(
-                uri,
-                null,
-                null,
-                null,
-                null))
-            {
-                if (cursor != null)
-                {
-                    int nameIndex =
-                        cursor.GetColumnIndex(
-                            OpenableColumns.DisplayName
-                        );
-
-                    if (
-                        cursor.MoveToFirst() &&
-                        nameIndex >= 0
-                    )
-                    {
-                        string? detectedName =
-                            cursor.GetString(nameIndex);
-
-                        if (!string.IsNullOrWhiteSpace(
-                            detectedName))
-                        {
-                            fileName = detectedName;
-                        }
-                    }
-                }
-            }
-
-
-            // =================================================
-            // Bersihkan nama file
-            // =================================================
-
-            foreach (
-                char invalidChar
-                in Path.GetInvalidFileNameChars())
-            {
-                fileName =
-                    fileName.Replace(
-                        invalidChar,
-                        '_'
-                    );
-            }
-
-
-            // =================================================
-            // Buat path cache Android
-            // =================================================
-
-            string cacheDirectory =
-                CacheDir?.AbsolutePath
-                ?? throw new Exception(
-                    "Cache directory Android tidak tersedia."
-                );
-
-
-            string cachePath =
-                Path.Combine(
-                    cacheDirectory,
-                    fileName
-                );
-
-
-            // =================================================
-            // Salin file URI → cache
-            // =================================================
-
-            using (
-                var input =
-                    ContentResolver.OpenInputStream(uri))
-            {
-                if (input == null)
-                {
-                    throw new Exception(
-                        "Tidak dapat membaca file yang dipilih."
-                    );
-                }
-
-                using (
-                    var output =
-                        File.Create(cachePath))
-                {
-                    input.CopyTo(output);
-                }
-            }
-
-
-            // =================================================
-            // Cek ukuran file
-            // =================================================
-
-            long fileSize =
-                new FileInfo(cachePath).Length;
-
-
-            // =================================================
-            // Tampilkan hasil
-            // =================================================
-
-            if (status != null)
-            {
-                status.Text =
-                    "✅ File berhasil dibuka!\n\n" +
-                    $"Nama : {fileName}\n" +
-                    $"Ukuran : {fileSize:N0} bytes\n\n" +
-                    $"Lokasi cache:\n{cachePath}";
-            }
+            ProcessSelectedFile(data.Data);
         }
         catch (Exception ex)
         {
-            if (status != null)
+            ShowStatus(
+                "❌ Gagal memproses file\n\n" +
+                ex.Message
+            );
+
+            System.Diagnostics.Debug.WriteLine(
+                ex.ToString()
+            );
+        }
+    }
+
+
+    // =========================================================
+    // PROSES FILE
+    // =========================================================
+
+    private void ProcessSelectedFile(
+        Android.Net.Uri uri)
+    {
+        // =====================================================
+        // Nama file
+        // =====================================================
+
+        string fileName = "temp.assets";
+
+        using (var cursor = ContentResolver.Query(
+            uri,
+            null,
+            null,
+            null,
+            null))
+        {
+            if (cursor != null)
             {
-                status.Text =
-                    "❌ Gagal membuka file\n\n" +
-                    ex.Message;
+                int nameIndex =
+                    cursor.GetColumnIndex(
+                        OpenableColumns.DisplayName
+                    );
+
+                if (
+                    cursor.MoveToFirst() &&
+                    nameIndex >= 0
+                )
+                {
+                    string? detectedName =
+                        cursor.GetString(nameIndex);
+
+                    if (!string.IsNullOrWhiteSpace(
+                        detectedName))
+                    {
+                        fileName = detectedName;
+                    }
+                }
             }
         }
+
+
+        // =====================================================
+        // Bersihkan nama
+        // =====================================================
+
+        foreach (
+            char invalidChar
+            in Path.GetInvalidFileNameChars())
+        {
+            fileName = fileName.Replace(
+                invalidChar,
+                '_'
+            );
+        }
+
+
+        // =====================================================
+        // Cache Android
+        // =====================================================
+
+        string cacheDirectory =
+            CacheDir?.AbsolutePath
+            ?? throw new Exception(
+                "Cache directory Android tidak tersedia."
+            );
+
+
+        string cachePath =
+            Path.Combine(
+                cacheDirectory,
+                fileName
+            );
+
+
+        // =====================================================
+        // Salin URI → cache
+        // =====================================================
+
+        using (
+            var input =
+                ContentResolver.OpenInputStream(uri))
+        {
+            if (input == null)
+            {
+                throw new Exception(
+                    "Tidak dapat membaca file."
+                );
+            }
+
+            using (
+                var output =
+                    File.Create(cachePath))
+            {
+                input.CopyTo(output);
+            }
+        }
+
+
+        long fileSize =
+            new FileInfo(cachePath).Length;
+
+
+        // =====================================================
+        // Pastikan AssetsManager tersedia
+        // =====================================================
+
+        if (assetsManager == null)
+        {
+            throw new Exception(
+                "AssetsManager belum tersedia."
+            );
+        }
+
+
+        // =====================================================
+        // COBA BUKA SEBAGAI ASSET BUNDLE
+        // =====================================================
+
+        ShowStatus(
+            "⏳ Membaca AssetBundle...\n\n" +
+            $"Nama : {fileName}\n" +
+            $"Ukuran : {fileSize:N0} bytes"
+        );
+
+
+        var bundleInst =
+            assetsManager.LoadBundleFile(
+                cachePath
+            );
+
+
+        // =====================================================
+        // BACA INFORMASI BUNDLE
+        // =====================================================
+
+        var bundleFile =
+            bundleInst.file;
+
+
+        var directories =
+            bundleFile.BlockAndDirInfo.DirectoryInfos;
+
+
+        // =====================================================
+        // TAMPILKAN HASIL
+        // =====================================================
+
+        StringBuilder result =
+            new StringBuilder();
+
+
+        result.AppendLine(
+            "✅ ASSETBUNDLE BERHASIL DIBUKA!"
+        );
+
+        result.AppendLine();
+
+        result.AppendLine(
+            $"Nama : {fileName}"
+        );
+
+        result.AppendLine(
+            $"Ukuran : {fileSize:N0} bytes"
+        );
+
+        result.AppendLine();
+
+        result.AppendLine(
+            $"Jumlah file : {directories.Count}"
+        );
+
+        result.AppendLine();
+
+        result.AppendLine(
+            "=== ISI BUNDLE ==="
+        );
+
+        result.AppendLine();
+
+
+        int index = 1;
+
+        foreach (var dir in directories)
+        {
+            result.AppendLine(
+                $"{index}. {dir.Name}"
+            );
+
+            index++;
+        }
+
+
+        ShowStatus(
+            result.ToString()
+        );
+    }
+
+
+    // =========================================================
+    // STATUS
+    // =========================================================
+
+    private void ShowStatus(
+        string message)
+    {
+        RunOnUiThread(() =>
+        {
+            if (status != null)
+            {
+                status.Text = message;
+            }
+        });
     }
 }
