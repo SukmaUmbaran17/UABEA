@@ -3,6 +3,7 @@ using Android.Content;
 using Android.OS;
 using Android.Provider;
 using Android.Widget;
+using AssetsTools.NET;
 using System;
 using System.IO;
 
@@ -18,9 +19,38 @@ public class MainActivity : Activity
 
     private TextView? status;
 
+    // =========================================================
+    // AssetsTools.NET
+    // =========================================================
+
+    private AssetsManager? assetsManager;
+
+
     protected override void OnCreate(Bundle? savedInstanceState)
     {
         base.OnCreate(savedInstanceState);
+
+        // =====================================================
+        // Inisialisasi AssetsManager
+        // =====================================================
+
+        try
+        {
+            assetsManager = new AssetsManager();
+        }
+        catch (Exception ex)
+        {
+            Toast.MakeText(
+                this,
+                "Gagal memuat AssetsTools.NET",
+                ToastLength.Long
+            )?.Show();
+
+            System.Diagnostics.Debug.WriteLine(
+                "AssetsTools.NET error: " + ex
+            );
+        }
+
 
         // =====================================================
         // Layout utama
@@ -47,6 +77,18 @@ public class MainActivity : Activity
 
 
         // =====================================================
+        // Status
+        // =====================================================
+
+        status = new TextView(this)
+        {
+            Text = assetsManager != null
+                ? "✅ AssetsTools.NET berhasil dimuat.\n\nBelum ada file dipilih."
+                : "❌ AssetsTools.NET gagal dimuat."
+        };
+
+
+        // =====================================================
         // Tombol Open Asset
         // =====================================================
 
@@ -54,21 +96,6 @@ public class MainActivity : Activity
         {
             Text = "Open Asset"
         };
-
-
-        // =====================================================
-        // Status
-        // =====================================================
-
-        status = new TextView(this)
-        {
-            Text = "Belum ada file dipilih."
-        };
-
-
-        // =====================================================
-        // Event tombol
-        // =====================================================
 
         button.Click += (sender, e) =>
         {
@@ -101,12 +128,16 @@ public class MainActivity : Activity
     {
         try
         {
-            Intent intent = new Intent(Intent.ActionOpenDocument);
+            Intent intent = new Intent(
+                Intent.ActionOpenDocument
+            );
 
-            intent.AddCategory(Intent.CategoryOpenable);
+            intent.AddCategory(
+                Intent.CategoryOpenable
+            );
 
             // Untuk sementara semua file diperbolehkan.
-            // Nanti bisa kita batasi ke file Unity.
+            // Nanti kita bisa membatasi file Unity.
             intent.SetType("*/*");
 
             StartActivityForResult(
@@ -142,12 +173,12 @@ public class MainActivity : Activity
         );
 
 
-        // Pastikan ini hasil dari File Picker
+        // Pastikan ini hasil File Picker
         if (requestCode != PickFileRequestCode)
             return;
 
 
-        // User membatalkan pemilihan file
+        // User membatalkan
         if (resultCode != Result.Ok)
         {
             if (status != null)
@@ -176,7 +207,7 @@ public class MainActivity : Activity
         try
         {
             // =================================================
-            // Ambil URI file
+            // Ambil URI
             // =================================================
 
             var uri = data.Data;
@@ -255,7 +286,7 @@ public class MainActivity : Activity
 
 
             // =================================================
-            // Salin file dari URI ke cache
+            // Salin file URI → cache
             // =================================================
 
             using (
