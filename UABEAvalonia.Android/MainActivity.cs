@@ -4,6 +4,7 @@ using Android.OS;
 using Android.Provider;
 using Android.Widget;
 
+using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 
 using System;
@@ -26,12 +27,18 @@ public class MainActivity : Activity
     private AssetsManager? assetsManager;
 
 
-    protected override void OnCreate(Bundle? savedInstanceState)
+    // =========================================================
+    // ON CREATE
+    // =========================================================
+
+    protected override void OnCreate(
+        Bundle? savedInstanceState)
     {
         base.OnCreate(savedInstanceState);
 
+
         // =====================================================
-        // AssetsManager
+        // AssetsTools.NET
         // =====================================================
 
         try
@@ -52,9 +59,11 @@ public class MainActivity : Activity
         // Layout
         // =====================================================
 
-        LinearLayout layout = new LinearLayout(this);
+        LinearLayout layout =
+            new LinearLayout(this);
 
-        layout.Orientation = Orientation.Vertical;
+        layout.Orientation =
+            Orientation.Vertical;
 
         layout.SetPadding(
             40,
@@ -68,20 +77,25 @@ public class MainActivity : Activity
         // Judul
         // =====================================================
 
-        TextView title = new TextView(this);
+        TextView title =
+            new TextView(this);
 
-        title.Text = "UABEA Android";
+        title.Text =
+            "UABEA Android";
 
-        title.TextSize = 24;
+        title.TextSize =
+            24;
 
 
         // =====================================================
         // Tombol
         // =====================================================
 
-        Button button = new Button(this);
+        Button button =
+            new Button(this);
 
-        button.Text = "OPEN UNITY3D";
+        button.Text =
+            "OPEN UNITY3D";
 
 
         button.Click += delegate
@@ -94,7 +108,8 @@ public class MainActivity : Activity
         // Status
         // =====================================================
 
-        status = new TextView(this);
+        status =
+            new TextView(this);
 
         if (assetsManager != null)
         {
@@ -108,11 +123,12 @@ public class MainActivity : Activity
                 "AssetsTools.NET gagal dimuat.";
         }
 
-        status.TextSize = 16;
+        status.TextSize =
+            16;
 
 
         // =====================================================
-        // Tambahkan view
+        // Tambahkan View
         // =====================================================
 
         layout.AddView(title);
@@ -138,15 +154,19 @@ public class MainActivity : Activity
     {
         try
         {
-            Intent intent = new Intent(
-                Intent.ActionOpenDocument
-            );
+            Intent intent =
+                new Intent(
+                    Intent.ActionOpenDocument
+                );
 
             intent.AddCategory(
                 Intent.CategoryOpenable
             );
 
-            intent.SetType("*/*");
+            intent.SetType(
+                "*/*"
+            );
+
 
             StartActivityForResult(
                 intent,
@@ -308,7 +328,7 @@ public class MainActivity : Activity
 
 
         // =====================================================
-        // Bersihkan nama
+        // Bersihkan nama file
         // =====================================================
 
         foreach (
@@ -324,7 +344,7 @@ public class MainActivity : Activity
 
 
         // =====================================================
-        // Cache
+        // Cache Android
         // =====================================================
 
         if (CacheDir == null)
@@ -335,19 +355,15 @@ public class MainActivity : Activity
         }
 
 
-        string cacheDirectory =
-            CacheDir.AbsolutePath;
-
-
         string cachePath =
             Path.Combine(
-                cacheDirectory,
+                CacheDir.AbsolutePath,
                 fileName
             );
 
 
         // =====================================================
-        // Copy URI ke cache
+        // Copy URI -> Cache
         // =====================================================
 
         using (
@@ -376,7 +392,9 @@ public class MainActivity : Activity
         // =====================================================
 
         FileInfo info =
-            new FileInfo(cachePath);
+            new FileInfo(
+                cachePath
+            );
 
 
         long fileSize =
@@ -384,7 +402,7 @@ public class MainActivity : Activity
 
 
         ShowStatus(
-            "Membaca AssetBundle...\n\n" +
+            "⏳ Membaca AssetBundle...\n\n" +
             "Nama : " +
             fileName +
             "\n" +
@@ -395,7 +413,7 @@ public class MainActivity : Activity
 
 
         // =====================================================
-        // Buka AssetBundle
+        // LOAD ASSET BUNDLE
         // =====================================================
 
         BundleFileInstance bundleInst =
@@ -404,8 +422,16 @@ public class MainActivity : Activity
             );
 
 
+        if (bundleInst == null)
+        {
+            throw new Exception(
+                "AssetBundle tidak dapat dibuka."
+            );
+        }
+
+
         // =====================================================
-        // Directory list
+        // Ambil daftar file dalam bundle
         // =====================================================
 
         var directories =
@@ -415,8 +441,12 @@ public class MainActivity : Activity
                 .DirectoryInfos;
 
 
+        int directoryCount =
+            directories.Count();
+
+
         // =====================================================
-        // Hasil
+        // Mulai hasil
         // =====================================================
 
         StringBuilder result =
@@ -424,9 +454,8 @@ public class MainActivity : Activity
 
 
         result.AppendLine(
-            "ASSETBUNDLE BERHASIL DIBUKA!"
+            "✅ ASSETBUNDLE BERHASIL DIBUKA!"
         );
-
 
         result.AppendLine();
 
@@ -448,8 +477,8 @@ public class MainActivity : Activity
 
 
         result.AppendLine(
-            "Jumlah file : " +
-            directories.Count()
+            "File dalam Bundle : " +
+            directoryCount
         );
 
 
@@ -457,28 +486,135 @@ public class MainActivity : Activity
 
 
         result.AppendLine(
-            "=== ISI BUNDLE ==="
+            "=== SERIALIZED FILE ==="
         );
 
 
         result.AppendLine();
 
 
-        int index = 1;
+        int serializedCount =
+            0;
 
 
-        foreach (var dir in directories)
+        // =====================================================
+        // Baca setiap file CAB
+        // =====================================================
+
+        for (
+            int i = 0;
+            i < directoryCount;
+            i++)
         {
+            var directory =
+                directories[i];
+
+
+            string directoryName =
+                directory.Name;
+
+
+            // Flags 0x04 = serialized file
+            bool isSerialized =
+                (directory.Flags & 0x04) != 0;
+
+
+            if (!isSerialized)
+            {
+                continue;
+            }
+
+
+            serializedCount++;
+
+
             result.AppendLine(
-                index.ToString() +
+                (serializedCount) +
                 ". " +
-                dir.Name
+                directoryName
             );
 
 
-            index++;
+            try
+            {
+                // =================================================
+                // Load SerializedFile dari Bundle
+                // =================================================
+
+                AssetsFileInstance assetsInst =
+                    manager.LoadAssetsFileFromBundle(
+                        bundleInst,
+                        i,
+                        false
+                    );
+
+
+                if (assetsInst == null)
+                {
+                    result.AppendLine(
+                        "   Gagal memuat SerializedFile."
+                    );
+
+                    result.AppendLine();
+
+                    continue;
+                }
+
+
+                // =================================================
+                // Informasi SerializedFile
+                // =================================================
+
+                int assetCount =
+                    assetsInst
+                        .file
+                        .Metadata
+                        .AssetInfos
+                        .Count;
+
+
+                result.AppendLine(
+                    "   Unity Version : " +
+                    assetsInst.file.Metadata.UnityVersion
+                );
+
+
+                result.AppendLine(
+                    "   Asset Count : " +
+                    assetCount
+                );
+
+
+                result.AppendLine();
+            }
+            catch (Exception ex)
+            {
+                result.AppendLine(
+                    "   Error : " +
+                    ex.Message
+                );
+
+
+                result.AppendLine();
+            }
         }
 
+
+        // =====================================================
+        // Jika tidak ada SerializedFile
+        // =====================================================
+
+        if (serializedCount == 0)
+        {
+            result.AppendLine(
+                "Tidak ada SerializedFile."
+            );
+        }
+
+
+        // =====================================================
+        // Tampilkan
+        // =====================================================
 
         ShowStatus(
             result.ToString()
@@ -504,7 +640,8 @@ public class MainActivity : Activity
             {
                 if (status != null)
                 {
-                    status.Text = message;
+                    status.Text =
+                        message;
                 }
             }
         );
