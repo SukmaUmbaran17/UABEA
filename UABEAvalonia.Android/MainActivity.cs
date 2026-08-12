@@ -10,6 +10,7 @@ using AssetsTools.NET.Extra;
 using System;
 using System.IO;
 using System.Text;
+using System.Collections.Generic;
 
 using AndroidUri = global::Android.Net.Uri;
 
@@ -604,6 +605,9 @@ namespace UABEAvalonia.Android
                 int number = 0;
 
 
+                ClearAssetList();
+
+
                 foreach (
                     var asset
                     in assetsFile.file.AssetInfos)
@@ -611,13 +615,45 @@ namespace UABEAvalonia.Android
                     number++;
 
 
+                    AssetFileInfo currentAsset =
+                        asset;
+
+
                     result.AppendLine(
                         number +
                         ". TypeID: " +
-                        asset.TypeId +
+                        currentAsset.TypeId +
                         " | PathID: " +
-                        asset.PathId
+                        currentAsset.PathId
                     );
+
+
+                    Button assetButton =
+                        new Button(this);
+
+
+                    assetButton.Text =
+                        "Asset #" +
+                        number +
+                        " | TypeID " +
+                        currentAsset.TypeId;
+
+
+                    assetButton.Click += delegate
+                    {
+                        LoadAssetInspector(
+                            assetsFile,
+                            currentAsset
+                        );
+                    };
+
+
+                    if (assetList != null)
+                    {
+                        assetList.AddView(
+                            assetButton
+                        );
+                    }
                 }
 
 
@@ -631,6 +667,176 @@ namespace UABEAvalonia.Android
                     "Gagal membaca SerializedFile.\n\n" +
                     ex.Message
                 );
+            }
+        }
+
+
+        private void LoadAssetInspector(
+            AssetsFileInstance assetsFile,
+            AssetFileInfo asset)
+        {
+            if (assetsManager == null)
+            {
+                return;
+            }
+
+
+            try
+            {
+                StringBuilder result =
+                    new StringBuilder();
+
+
+                result.AppendLine(
+                    "=== ASSET INSPECTOR ==="
+                );
+
+                result.AppendLine();
+
+                result.AppendLine(
+                    "TypeID: " +
+                    asset.TypeId
+                );
+
+                result.AppendLine(
+                    "PathID: " +
+                    asset.PathId
+                );
+
+                result.AppendLine();
+
+                result.AppendLine(
+                    "=== SERIALIZED FIELDS ==="
+                );
+
+                result.AppendLine();
+
+
+                AssetTypeValueField baseField =
+                    assetsManager.GetBaseField(
+                        assetsFile,
+                        asset
+                    );
+
+
+                if (baseField == null)
+                {
+                    result.AppendLine(
+                        "BaseField tidak tersedia."
+                    );
+
+                    SetStatus(
+                        result.ToString()
+                    );
+
+                    return;
+                }
+
+
+                DumpField(
+                    baseField,
+                    "",
+                    result
+                );
+
+
+                SetStatus(
+                    result.ToString()
+                );
+            }
+            catch (Exception ex)
+            {
+                SetStatus(
+                    "Gagal membaca Asset.\n\n" +
+                    ex.Message
+                );
+            }
+        }
+
+
+        private void DumpField(
+            AssetTypeValueField field,
+            string indent,
+            StringBuilder result)
+        {
+            if (field == null)
+            {
+                return;
+            }
+
+
+            string fieldName =
+                field.FieldName ?? "(unnamed)";
+
+
+            string typeName = "";
+
+
+            try
+            {
+                if (field.TemplateField != null)
+                {
+                    typeName =
+                        field.TemplateField.TypeName ?? "";
+                }
+            }
+            catch
+            {
+                typeName = "";
+            }
+
+
+            string value = "";
+
+
+            try
+            {
+                if (field.Value != null)
+                {
+                    value =
+                        field.Value.AsString();
+                }
+            }
+            catch
+            {
+                value = "";
+            }
+
+
+            if (!string.IsNullOrEmpty(value))
+            {
+                result.AppendLine(
+                    indent +
+                    fieldName +
+                    " : " +
+                    typeName +
+                    " = " +
+                    value
+                );
+            }
+            else
+            {
+                result.AppendLine(
+                    indent +
+                    fieldName +
+                    " : " +
+                    typeName
+                );
+            }
+
+
+            if (field.Children != null)
+            {
+                foreach (
+                    AssetTypeValueField child
+                    in field.Children)
+                {
+                    DumpField(
+                        child,
+                        indent + "  ",
+                        result
+                    );
+                }
             }
         }
 
