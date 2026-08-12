@@ -24,17 +24,13 @@ namespace UABEAvalonia.Android
         private const int PickFileRequestCode = 1001;
 
         private TextView? status;
-        private LinearLayout? assetListLayout;
+        private LinearLayout? assetContainer;
 
         private AssetsManager? assetsManager;
 
-        private AssetsFileInstance? currentAssetsFile;
         private BundleFileInstance? currentBundle;
+        private AssetsFileInstance? currentAssetsFile;
 
-
-        // =====================================================
-        // ON CREATE
-        // =====================================================
 
         protected override void OnCreate(Bundle? savedInstanceState)
         {
@@ -47,114 +43,49 @@ namespace UABEAvalonia.Android
             catch (Exception ex)
             {
                 assetsManager = null;
-
-                System.Diagnostics.Debug.WriteLine(
-                    ex.ToString()
-                );
+                System.Diagnostics.Debug.WriteLine(ex);
             }
 
+            LinearLayout root = new LinearLayout(this);
+            root.Orientation = Orientation.Vertical;
+            root.SetPadding(24, 24, 24, 24);
 
-            // =================================================
-            // ROOT LAYOUT
-            // =================================================
+            TextView title = new TextView(this);
+            title.Text = "UABEA Android";
+            title.TextSize = 24;
 
-            LinearLayout layout =
-                new LinearLayout(this);
+            Button openButton = new Button(this);
+            openButton.Text = "OPEN UNITY3D";
 
-            layout.Orientation =
-                Orientation.Vertical;
+            openButton.Click += delegate
+            {
+                OpenFilePicker();
+            };
 
-            layout.SetPadding(
-                24,
-                24,
-                24,
-                24
-            );
-
-
-            // =================================================
-            // TITLE
-            // =================================================
-
-            TextView title =
-                new TextView(this);
-
-            title.Text =
-                "UABEA Android";
-
-            title.TextSize =
-                24;
-
-
-            // =================================================
-            // OPEN BUTTON
-            // =================================================
-
-            Button openButton =
-                new Button(this);
-
-            openButton.Text =
-                "OPEN UNITY3D";
-
-            openButton.Click +=
-                delegate
-                {
-                    OpenFilePicker();
-                };
-
-
-            // =================================================
-            // STATUS
-            // =================================================
-
-            status =
-                new TextView(this);
-
-            status.TextSize =
-                16;
+            status = new TextView(this);
+            status.TextSize = 16;
 
             if (assetsManager != null)
             {
                 status.Text =
-                    "✅ AssetsTools.NET siap.\n\n" +
+                    "AssetsTools.NET siap.\n\n" +
                     "Tekan OPEN UNITY3D.";
             }
             else
             {
                 status.Text =
-                    "❌ AssetsTools.NET gagal dimuat.";
+                    "AssetsTools.NET gagal dimuat.";
             }
 
+            assetContainer = new LinearLayout(this);
+            assetContainer.Orientation = Orientation.Vertical;
 
-            // =================================================
-            // ASSET LIST CONTAINER
-            // =================================================
+            ScrollView scroll = new ScrollView(this);
+            scroll.AddView(assetContainer);
 
-            assetListLayout =
-                new LinearLayout(this);
-
-            assetListLayout.Orientation =
-                Orientation.Vertical;
-
-
-            ScrollView scroll =
-                new ScrollView(this);
-
-            scroll.AddView(
-                assetListLayout
-            );
-
-
-            // =================================================
-            // ADD VIEW
-            // =================================================
-
-            layout.AddView(title);
-
-            layout.AddView(openButton);
-
-            layout.AddView(status);
-
+            root.AddView(title);
+            root.AddView(openButton);
+            root.AddView(status);
 
             LinearLayout.LayoutParams scrollParams =
                 new LinearLayout.LayoutParams(
@@ -162,71 +93,14 @@ namespace UABEAvalonia.Android
                     0
                 );
 
-            scrollParams.Weight =
-                1;
+            scrollParams.Weight = 1;
 
-
-            layout.AddView(
+            root.AddView(
                 scroll,
                 scrollParams
             );
 
-
-            SetContentView(layout);
-        }
-
-
-        // =====================================================
-        // UNITY TYPE NAME
-        // =====================================================
-
-        private string GetUnityTypeName(
-            int typeId)
-        {
-            switch (typeId)
-            {
-                case 1:
-                    return "GameObject";
-
-                case 4:
-                    return "Transform";
-
-                case 21:
-                    return "Material";
-
-                case 28:
-                    return "Texture2D";
-
-                case 43:
-                    return "Mesh";
-
-                case 48:
-                    return "Shader";
-
-                case 74:
-                    return "AnimationClip";
-
-                case 83:
-                    return "AudioClip";
-
-                case 114:
-                    return "MonoBehaviour";
-
-                case 115:
-                    return "MonoScript";
-
-                case 142:
-                    return "AssetBundle";
-
-                case 198:
-                    return "ParticleSystem";
-
-                case 199:
-                    return "ParticleSystemRenderer";
-
-                default:
-                    return "Unknown";
-            }
+            SetContentView(root);
         }
 
 
@@ -239,18 +113,13 @@ namespace UABEAvalonia.Android
             try
             {
                 Intent intent =
-                    new Intent(
-                        Intent.ActionOpenDocument
-                    );
+                    new Intent(Intent.ActionOpenDocument);
 
                 intent.AddCategory(
                     Intent.CategoryOpenable
                 );
 
-                intent.SetType(
-                    "*/*"
-                );
-
+                intent.SetType("*/*");
 
                 StartActivityForResult(
                     intent,
@@ -267,9 +136,180 @@ namespace UABEAvalonia.Android
         }
 
 
+        protected override void OnActivityResult(
+            int requestCode,
+            Result resultCode,
+            Intent? data)
+        {
+            base.OnActivityResult(
+                requestCode,
+                resultCode,
+                data
+            );
+
+            if (requestCode != PickFileRequestCode)
+            {
+                return;
+            }
+
+            if (resultCode != Result.Ok)
+            {
+                SetStatus(
+                    "Pemilihan file dibatalkan."
+                );
+
+                return;
+            }
+
+            if (data == null || data.Data == null)
+            {
+                SetStatus(
+                    "File tidak ditemukan."
+                );
+
+                return;
+            }
+
+            try
+            {
+                ReadBundle(data.Data);
+            }
+            catch (Exception ex)
+            {
+                ShowError(
+                    "Gagal membuka Unity3D",
+                    ex
+                );
+            }
+        }
+
+
         // =====================================================
-        // FILE PICKER RESULT
+        // GET FILE NAME
         // =====================================================
 
-        protected override void OnActivityResult(
-           
+        private string GetFileName(AndroidUri uri)
+        {
+            string fileName = "temp.unity3d";
+
+            using (
+                var cursor = ContentResolver.Query(
+                    uri,
+                    null,
+                    null,
+                    null,
+                    null))
+            {
+                if (cursor != null)
+                {
+                    int index =
+                        cursor.GetColumnIndex(
+                            OpenableColumns.DisplayName
+                        );
+
+                    if (index >= 0 && cursor.MoveToFirst())
+                    {
+                        string? name =
+                            cursor.GetString(index);
+
+                        if (!string.IsNullOrWhiteSpace(name))
+                        {
+                            fileName = name;
+                        }
+                    }
+                }
+            }
+
+            return fileName;
+        }
+
+
+        // =====================================================
+        // COPY FILE
+        // =====================================================
+
+        private string CopyToCache(
+            AndroidUri uri,
+            string fileName)
+        {
+            if (CacheDir == null)
+            {
+                throw new Exception(
+                    "CacheDir tidak tersedia."
+                );
+            }
+
+            foreach (
+                char invalidChar
+                in Path.GetInvalidFileNameChars())
+            {
+                fileName =
+                    fileName.Replace(
+                        invalidChar,
+                        '_'
+                    );
+            }
+
+            string path =
+                Path.Combine(
+                    CacheDir.AbsolutePath,
+                    fileName
+                );
+
+            using (
+                var input =
+                    ContentResolver.OpenInputStream(uri))
+            {
+                if (input == null)
+                {
+                    throw new Exception(
+                        "Tidak dapat membaca file."
+                    );
+                }
+
+                using (
+                    FileStream output =
+                        File.Create(path))
+                {
+                    input.CopyTo(output);
+                }
+            }
+
+            return path;
+        }
+
+
+        // =====================================================
+        // READ BUNDLE
+        // =====================================================
+
+        private void ReadBundle(AndroidUri uri)
+        {
+            if (assetsManager == null)
+            {
+                throw new Exception(
+                    "AssetsManager tidak tersedia."
+                );
+            }
+
+            SetStatus(
+                "Membaca file..."
+            );
+
+            string fileName =
+                GetFileName(uri);
+
+            string cachePath =
+                CopyToCache(
+                    uri,
+                    fileName
+                );
+
+            FileInfo info =
+                new FileInfo(cachePath);
+
+            SetStatus(
+                "Membuka AssetBundle..."
+            );
+
+            Bundle
