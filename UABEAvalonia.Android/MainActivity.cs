@@ -32,9 +32,9 @@ namespace UABEAvalonia.Android
         {
             base.OnCreate(savedInstanceState);
 
-            // ================================================
+            // =================================================
             // AssetsManager
-            // ================================================
+            // =================================================
 
             try
             {
@@ -50,9 +50,9 @@ namespace UABEAvalonia.Android
             }
 
 
-            // ================================================
+            // =================================================
             // Layout
-            // ================================================
+            // =================================================
 
             LinearLayout layout =
                 new LinearLayout(this);
@@ -68,9 +68,9 @@ namespace UABEAvalonia.Android
             );
 
 
-            // ================================================
+            // =================================================
             // Title
-            // ================================================
+            // =================================================
 
             TextView title =
                 new TextView(this);
@@ -82,9 +82,9 @@ namespace UABEAvalonia.Android
                 24;
 
 
-            // ================================================
-            // Button
-            // ================================================
+            // =================================================
+            // Open button
+            // =================================================
 
             Button openButton =
                 new Button(this);
@@ -100,9 +100,9 @@ namespace UABEAvalonia.Android
                 };
 
 
-            // ================================================
+            // =================================================
             // Status
-            // ================================================
+            // =================================================
 
             status =
                 new TextView(this);
@@ -124,9 +124,9 @@ namespace UABEAvalonia.Android
             }
 
 
-            // ================================================
+            // =================================================
             // ScrollView
-            // ================================================
+            // =================================================
 
             ScrollView scroll =
                 new ScrollView(this);
@@ -134,9 +134,9 @@ namespace UABEAvalonia.Android
             scroll.AddView(status);
 
 
-            // ================================================
+            // =================================================
             // Layout
-            // ================================================
+            // =================================================
 
             layout.AddView(title);
 
@@ -163,9 +163,63 @@ namespace UABEAvalonia.Android
         }
 
 
-        // ====================================================
+        // =====================================================
+        // TYPE ID → NAMA UNITY
+        // =====================================================
+
+        private string GetUnityTypeName(
+            int typeId)
+        {
+            switch (typeId)
+            {
+                case 1:
+                    return "GameObject";
+
+                case 4:
+                    return "Transform";
+
+                case 21:
+                    return "Material";
+
+                case 28:
+                    return "Texture2D";
+
+                case 43:
+                    return "Mesh";
+
+                case 48:
+                    return "Shader";
+
+                case 74:
+                    return "AnimationClip";
+
+                case 83:
+                    return "AudioClip";
+
+                case 114:
+                    return "MonoBehaviour";
+
+                case 115:
+                    return "MonoScript";
+
+                case 142:
+                    return "AssetBundle";
+
+                case 198:
+                    return "ParticleSystem";
+
+                case 199:
+                    return "ParticleSystemRenderer";
+
+                default:
+                    return "Unknown";
+            }
+        }
+
+
+        // =====================================================
         // FILE PICKER
-        // ====================================================
+        // =====================================================
 
         private void OpenFilePicker()
         {
@@ -198,9 +252,9 @@ namespace UABEAvalonia.Android
         }
 
 
-        // ====================================================
+        // =====================================================
         // FILE PICKER RESULT
-        // ====================================================
+        // =====================================================
 
         protected override void OnActivityResult(
             int requestCode,
@@ -268,9 +322,9 @@ namespace UABEAvalonia.Android
         }
 
 
-        // ====================================================
+        // =====================================================
         // GET FILE NAME
-        // ====================================================
+        // =====================================================
 
         private string GetFileName(
             AndroidUri uri)
@@ -322,9 +376,9 @@ namespace UABEAvalonia.Android
         }
 
 
-        // ====================================================
-        // COPY TO CACHE
-        // ====================================================
+        // =====================================================
+        // COPY FILE TO CACHE
+        // =====================================================
 
         private string CopyToCache(
             AndroidUri uri,
@@ -370,9 +424,9 @@ namespace UABEAvalonia.Android
         }
 
 
-        // ====================================================
+        // =====================================================
         // READ UNITY BUNDLE
-        // ====================================================
+        // =====================================================
 
         private void ReadUnityBundle(
             AndroidUri uri)
@@ -504,10 +558,10 @@ namespace UABEAvalonia.Android
 
 
             // =================================================
-            // LOAD SETIAP SERIALIZED FILE
+            // SERIALIZED FILE
             // =================================================
 
-            int index =
+            int fileNumber =
                 0;
 
 
@@ -515,11 +569,11 @@ namespace UABEAvalonia.Android
                 var directory
                 in directories)
             {
-                index++;
+                fileNumber++;
 
 
                 text.AppendLine(
-                    index +
+                    fileNumber +
                     ". " +
                     directory.Name
                 );
@@ -531,7 +585,7 @@ namespace UABEAvalonia.Android
                         assetsManager
                             .LoadAssetsFileFromBundle(
                                 bundle,
-                                index - 1,
+                                fileNumber - 1,
                                 false
                             );
 
@@ -610,18 +664,34 @@ namespace UABEAvalonia.Android
                         assetNumber++;
 
 
+                        string typeName =
+                            GetUnityTypeName(
+                                asset.TypeId
+                            );
+
+
                         text.AppendLine(
                             "   " +
                             assetNumber +
-                            ". TypeID: " +
-                            asset.TypeId +
-                            " | PathID: " +
+                            ". " +
+                            typeName
+                        );
+
+
+                        text.AppendLine(
+                            "      TypeID: " +
+                            asset.TypeId
+                        );
+
+
+                        text.AppendLine(
+                            "      PathID: " +
                             asset.PathId
                         );
+
+
+                        text.AppendLine();
                     }
-
-
-                    text.AppendLine();
                 }
                 catch (Exception ex)
                 {
@@ -630,10 +700,15 @@ namespace UABEAvalonia.Android
                         ex.Message
                     );
 
+
                     text.AppendLine();
                 }
             }
 
+
+            // =================================================
+            // TAMPILKAN HASIL
+            // =================================================
 
             SetStatus(
                 text.ToString()
@@ -641,9 +716,9 @@ namespace UABEAvalonia.Android
         }
 
 
-        // ====================================================
+        // =====================================================
         // STATUS
-        // ====================================================
+        // =====================================================
 
         private void SetStatus(
             string message)
@@ -667,9 +742,9 @@ namespace UABEAvalonia.Android
         }
 
 
-        // ====================================================
+        // =====================================================
         // ERROR
-        // ====================================================
+        // =====================================================
 
         private void ShowError(
             string title,
