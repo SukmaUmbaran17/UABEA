@@ -10,7 +10,6 @@ using AssetsTools.NET.Extra;
 using System;
 using System.IO;
 using System.Text;
-using System.Collections.Generic;
 
 using AndroidUri = global::Android.Net.Uri;
 
@@ -34,36 +33,74 @@ namespace UABEAvalonia.Android
         {
             base.OnCreate(savedInstanceState);
 
-            LinearLayout root = new LinearLayout(this);
-            root.Orientation = Orientation.Vertical;
-            root.SetPadding(30, 30, 30, 30);
+
+            LinearLayout root =
+                new LinearLayout(this);
+
+            root.Orientation =
+                Orientation.Vertical;
+
+            root.SetPadding(
+                30,
+                30,
+                30,
+                30
+            );
 
 
-            TextView title = new TextView(this);
-            title.Text = "UABEA Android";
-            title.TextSize = 24;
+            TextView title =
+                new TextView(this);
+
+            title.Text =
+                "UABEA Android";
+
+            title.TextSize =
+                24;
 
 
-            Button openButton = new Button(this);
-            openButton.Text = "OPEN UNITY3D";
+            Button openButton =
+                new Button(this);
+
+            openButton.Text =
+                "OPEN UNITY3D";
 
 
-            status = new TextView(this);
-            status.TextSize = 16;
-            status.Text = "Menyiapkan UABEA Android...";
+            status =
+                new TextView(this);
+
+            status.TextSize =
+                16;
+
+            status.Text =
+                "Menyiapkan UABEA Android...";
 
 
-            assetList = new LinearLayout(this);
-            assetList.Orientation = Orientation.Vertical;
+            assetList =
+                new LinearLayout(this);
+
+            assetList.Orientation =
+                Orientation.Vertical;
 
 
-            ScrollView scroll = new ScrollView(this);
-            scroll.AddView(assetList);
+            ScrollView scroll =
+                new ScrollView(this);
+
+            scroll.AddView(
+                assetList
+            );
 
 
-            root.AddView(title);
-            root.AddView(openButton);
-            root.AddView(status);
+            root.AddView(
+                title
+            );
+
+            root.AddView(
+                openButton
+            );
+
+            root.AddView(
+                status
+            );
 
 
             LinearLayout.LayoutParams scrollParams =
@@ -72,12 +109,19 @@ namespace UABEAvalonia.Android
                     0
                 );
 
-            scrollParams.Weight = 1;
+            scrollParams.Weight =
+                1;
 
-            root.AddView(scroll, scrollParams);
+
+            root.AddView(
+                scroll,
+                scrollParams
+            );
 
 
-            SetContentView(root);
+            SetContentView(
+                root
+            );
 
 
             openButton.Click += delegate
@@ -88,7 +132,9 @@ namespace UABEAvalonia.Android
 
             try
             {
-                assetsManager = new AssetsManager();
+                assetsManager =
+                    new AssetsManager();
+
 
                 SetStatus(
                     "AssetsTools.NET siap.\n\n" +
@@ -110,13 +156,20 @@ namespace UABEAvalonia.Android
             try
             {
                 Intent intent =
-                    new Intent(Intent.ActionOpenDocument);
+                    new Intent(
+                        Intent.ActionOpenDocument
+                    );
+
 
                 intent.AddCategory(
                     Intent.CategoryOpenable
                 );
 
-                intent.SetType("*/*");
+
+                intent.SetType(
+                    "*/*"
+                );
+
 
                 StartActivityForResult(
                     intent,
@@ -145,13 +198,17 @@ namespace UABEAvalonia.Android
             );
 
 
-            if (requestCode != PickFileRequestCode)
+            if (
+                requestCode !=
+                PickFileRequestCode)
             {
                 return;
             }
 
 
-            if (resultCode != Result.Ok)
+            if (
+                resultCode !=
+                Result.Ok)
             {
                 SetStatus(
                     "Pemilihan file dibatalkan."
@@ -161,7 +218,9 @@ namespace UABEAvalonia.Android
             }
 
 
-            if (data == null || data.Data == null)
+            if (
+                data == null ||
+                data.Data == null)
             {
                 SetStatus(
                     "URI file tidak ditemukan."
@@ -187,9 +246,11 @@ namespace UABEAvalonia.Android
         }
 
 
-        private string GetFileName(AndroidUri uri)
+        private string GetFileName(
+            AndroidUri uri)
         {
-            string fileName = "temp.unity3d";
+            string fileName =
+                "temp.unity3d";
 
 
             using (
@@ -214,12 +275,17 @@ namespace UABEAvalonia.Android
                         cursor.MoveToFirst())
                     {
                         string? detected =
-                            cursor.GetString(index);
+                            cursor.GetString(
+                                index
+                            );
 
 
-                        if (!string.IsNullOrWhiteSpace(detected))
+                        if (
+                            !string.IsNullOrWhiteSpace(
+                                detected))
                         {
-                            fileName = detected;
+                            fileName =
+                                detected;
                         }
                     }
                 }
@@ -263,7 +329,8 @@ namespace UABEAvalonia.Android
 
             using (
                 Stream? input =
-                    ContentResolver.OpenInputStream(uri))
+                    ContentResolver.OpenInputStream(
+                        uri))
             {
                 if (input == null)
                 {
@@ -277,7 +344,9 @@ namespace UABEAvalonia.Android
                     FileStream output =
                         File.Create(path))
                 {
-                    input.CopyTo(output);
+                    input.CopyTo(
+                        output
+                    );
                 }
             }
 
@@ -303,7 +372,9 @@ namespace UABEAvalonia.Android
 
 
             string fileName =
-                GetFileName(uri);
+                GetFileName(
+                    uri
+                );
 
 
             string cachePath =
@@ -314,7 +385,9 @@ namespace UABEAvalonia.Android
 
 
             FileInfo info =
-                new FileInfo(cachePath);
+                new FileInfo(
+                    cachePath
+                );
 
 
             SetStatus(
@@ -342,9 +415,13 @@ namespace UABEAvalonia.Android
                     .DirectoryInfos;
 
 
-            int directoryCount = 0;
+            int directoryCount =
+                0;
 
-            foreach (var item in directories)
+
+            foreach (
+                var item
+                in directories)
             {
                 directoryCount++;
             }
@@ -358,12 +435,15 @@ namespace UABEAvalonia.Android
                 "ASSETBUNDLE BERHASIL DIBUKA!"
             );
 
+
             result.AppendLine();
+
 
             result.AppendLine(
                 "Nama: " +
                 fileName
             );
+
 
             result.AppendLine(
                 "Ukuran: " +
@@ -371,18 +451,23 @@ namespace UABEAvalonia.Android
                 " bytes"
             );
 
+
             result.AppendLine();
+
 
             result.AppendLine(
                 "File dalam Bundle: " +
                 directoryCount
             );
 
+
             result.AppendLine();
+
 
             result.AppendLine(
                 "=== SERIALIZED FILE ==="
             );
+
 
             result.AppendLine();
 
@@ -390,13 +475,17 @@ namespace UABEAvalonia.Android
             ClearAssetList();
 
 
-            int fileNumber = 0;
+            int fileNumber =
+                0;
 
 
-            foreach (var directory in directories)
+            foreach (
+                var directory
+                in directories)
             {
                 int currentIndex =
                     fileNumber;
+
 
                 string currentName =
                     directory.Name;
@@ -414,6 +503,7 @@ namespace UABEAvalonia.Android
 
                 Button fileButton =
                     new Button(this);
+
 
                 fileButton.Text =
                     currentName;
@@ -452,7 +542,9 @@ namespace UABEAvalonia.Android
                             "   Tidak dapat dimuat."
                         );
 
+
                         result.AppendLine();
+
 
                         continue;
                     }
@@ -465,7 +557,8 @@ namespace UABEAvalonia.Android
                             .UnityVersion;
 
 
-                    int assetCount = 0;
+                    int assetCount =
+                        0;
 
 
                     foreach (
@@ -491,7 +584,8 @@ namespace UABEAvalonia.Android
                     result.AppendLine();
 
 
-                    int assetNumber = 0;
+                    int assetNumber =
+                        0;
 
 
                     foreach (
@@ -519,6 +613,7 @@ namespace UABEAvalonia.Android
                         "   ERROR: " +
                         ex.Message
                     );
+
 
                     result.AppendLine();
                 }
@@ -569,15 +664,21 @@ namespace UABEAvalonia.Android
                     "=== SERIALIZED FILE ==="
                 );
 
+
                 result.AppendLine();
+
 
                 result.AppendLine(
                     "Unity Version: " +
-                    assetsFile.file.Metadata.UnityVersion
+                    assetsFile
+                        .file
+                        .Metadata
+                        .UnityVersion
                 );
 
 
-                int count = 0;
+                int count =
+                    0;
 
 
                 foreach (
@@ -593,16 +694,20 @@ namespace UABEAvalonia.Android
                     count
                 );
 
+
                 result.AppendLine();
+
 
                 result.AppendLine(
                     "=== ASSET LIST ==="
                 );
 
+
                 result.AppendLine();
 
 
-                int number = 0;
+                int number =
+                    0;
 
 
                 ClearAssetList();
@@ -691,23 +796,29 @@ namespace UABEAvalonia.Android
                     "=== ASSET INSPECTOR ==="
                 );
 
+
                 result.AppendLine();
+
 
                 result.AppendLine(
                     "TypeID: " +
                     asset.TypeId
                 );
 
+
                 result.AppendLine(
                     "PathID: " +
                     asset.PathId
                 );
 
+
                 result.AppendLine();
+
 
                 result.AppendLine(
                     "=== SERIALIZED FIELDS ==="
                 );
+
 
                 result.AppendLine();
 
@@ -725,9 +836,11 @@ namespace UABEAvalonia.Android
                         "BaseField tidak tersedia."
                     );
 
+
                     SetStatus(
                         result.ToString()
                     );
+
 
                     return;
                 }
@@ -766,27 +879,12 @@ namespace UABEAvalonia.Android
 
 
             string fieldName =
-                field.FieldName ?? "(unnamed)";
+                field.FieldName ??
+                "(unnamed)";
 
 
-            string typeName = "";
-
-
-            try
-            {
-                if (field.TemplateField != null)
-                {
-                    typeName =
-                        field.TemplateField.TypeName ?? "";
-                }
-            }
-            catch
-            {
-                typeName = "";
-            }
-
-
-            string value = "";
+            string value =
+                "";
 
 
             try
@@ -794,12 +892,13 @@ namespace UABEAvalonia.Android
                 if (field.Value != null)
                 {
                     value =
-                        field.Value.AsString();
+                        field.Value.AsString;
                 }
             }
             catch
             {
-                value = "";
+                value =
+                    "";
             }
 
 
@@ -808,8 +907,6 @@ namespace UABEAvalonia.Android
                 result.AppendLine(
                     indent +
                     fieldName +
-                    " : " +
-                    typeName +
                     " = " +
                     value
                 );
@@ -818,9 +915,7 @@ namespace UABEAvalonia.Android
             {
                 result.AppendLine(
                     indent +
-                    fieldName +
-                    " : " +
-                    typeName
+                    fieldName
                 );
             }
 
