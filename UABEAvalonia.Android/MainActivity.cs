@@ -11,7 +11,6 @@ using System;
 using System.IO;
 using System.Text;
 using System.Globalization;
-using System.Collections.Generic;
 
 using AndroidUri = global::Android.Net.Uri;
 using AndroidViewStates = global::Android.Views.ViewStates;
@@ -34,13 +33,13 @@ namespace UABEAvalonia.Android
         private BundleFileInstance? currentBundle;
         private AssetsFileInstance? currentAssetsFile;
 
-        private bool showingSerializedFiles = false;
-        private bool showingAssetList = false;
-        private bool showingInspector = false;
+        private bool showingSerializedFiles;
+        private bool showingAssetList;
+        private bool showingInspector;
 
 
         // =========================================================
-        // ON CREATE
+        // CREATE
         // =========================================================
 
         protected override void OnCreate(
@@ -52,10 +51,11 @@ namespace UABEAvalonia.Android
 
             try
             {
-                assetsManager = new AssetsManager();
+                assetsManager =
+                    new AssetsManager();
 
                 SetStatus(
-                    "AssetsTools.NET siap.\n\n" +
+                    "AssetsTools.NET siap.\n" +
                     "Tekan OPEN UNITY3D."
                 );
             }
@@ -70,7 +70,7 @@ namespace UABEAvalonia.Android
 
 
         // =========================================================
-        // MAIN UI
+        // MAIN INTERFACE
         // =========================================================
 
         private void BuildMainInterface()
@@ -110,11 +110,41 @@ namespace UABEAvalonia.Android
                 new TextView(this);
 
             status.TextSize =
-                16;
+                14;
 
             status.Text =
                 "Menyiapkan UABEA Android...";
 
+
+            // =====================================================
+            // STATUS DIBERI TINGGI TETAP
+            // AGAR TIDAK MEMAKAN SELURUH LAYAR
+            // =====================================================
+
+            LinearLayout.LayoutParams statusParams =
+                new LinearLayout.LayoutParams(
+                    -1,
+                    75
+                );
+
+
+            root.AddView(
+                title
+            );
+
+            root.AddView(
+                openButton
+            );
+
+            root.AddView(
+                status,
+                statusParams
+            );
+
+
+            // =====================================================
+            // ASSET LIST
+            // =====================================================
 
             assetList =
                 new LinearLayout(this);
@@ -126,12 +156,12 @@ namespace UABEAvalonia.Android
             ScrollView scroll =
                 new ScrollView(this);
 
-            scroll.AddView(assetList);
+            scroll.FillViewport =
+                true;
 
-
-            root.AddView(title);
-            root.AddView(openButton);
-            root.AddView(status);
+            scroll.AddView(
+                assetList
+            );
 
 
             LinearLayout.LayoutParams scrollParams =
@@ -140,7 +170,8 @@ namespace UABEAvalonia.Android
                     0
                 );
 
-            scrollParams.Weight = 1;
+            scrollParams.Weight =
+                1;
 
 
             root.AddView(
@@ -149,7 +180,9 @@ namespace UABEAvalonia.Android
             );
 
 
-            SetContentView(root);
+            SetContentView(
+                root
+            );
 
 
             openButton.Click += delegate
@@ -176,7 +209,9 @@ namespace UABEAvalonia.Android
                     Intent.CategoryOpenable
                 );
 
-                intent.SetType("*/*");
+                intent.SetType(
+                    "*/*"
+                );
 
                 StartActivityForResult(
                     intent,
@@ -192,6 +227,10 @@ namespace UABEAvalonia.Android
             }
         }
 
+
+        // =========================================================
+        // ACTIVITY RESULT
+        // =========================================================
 
         protected override void OnActivityResult(
             int requestCode,
@@ -213,7 +252,9 @@ namespace UABEAvalonia.Android
             }
 
 
-            if (resultCode != Result.Ok)
+            if (
+                resultCode !=
+                Result.Ok)
             {
                 SetStatus(
                     "Pemilihan file dibatalkan."
@@ -237,7 +278,9 @@ namespace UABEAvalonia.Android
 
             try
             {
-                ReadUnityBundle(data.Data);
+                ReadUnityBundle(
+                    data.Data
+                );
             }
             catch (Exception ex)
             {
@@ -250,7 +293,7 @@ namespace UABEAvalonia.Android
 
 
         // =========================================================
-        // FILE NAME
+        // GET FILE NAME
         // =========================================================
 
         private string GetFileName(
@@ -282,14 +325,17 @@ namespace UABEAvalonia.Android
                         cursor.MoveToFirst())
                     {
                         string? detected =
-                            cursor.GetString(index);
+                            cursor.GetString(
+                                index
+                            );
 
 
                         if (
                             !string.IsNullOrWhiteSpace(
                                 detected))
                         {
-                            fileName = detected;
+                            fileName =
+                                detected;
                         }
                     }
                 }
@@ -313,7 +359,7 @@ namespace UABEAvalonia.Android
 
 
         // =========================================================
-        // COPY TO CACHE
+        // COPY FILE TO CACHE
         // =========================================================
 
         private string CopyToCache(
@@ -337,7 +383,8 @@ namespace UABEAvalonia.Android
 
             using (
                 Stream? input =
-                    ContentResolver.OpenInputStream(uri))
+                    ContentResolver.OpenInputStream(
+                        uri))
             {
                 if (input == null)
                 {
@@ -351,7 +398,9 @@ namespace UABEAvalonia.Android
                     FileStream output =
                         File.Create(path))
                 {
-                    input.CopyTo(output);
+                    input.CopyTo(
+                        output
+                    );
                 }
             }
 
@@ -361,7 +410,7 @@ namespace UABEAvalonia.Android
 
 
         // =========================================================
-        // OPEN UNITY BUNDLE
+        // READ UNITY BUNDLE
         // =========================================================
 
         private void ReadUnityBundle(
@@ -392,7 +441,9 @@ namespace UABEAvalonia.Android
 
 
             FileInfo info =
-                new FileInfo(cachePath);
+                new FileInfo(
+                    cachePath
+                );
 
 
             SetStatus(
@@ -416,6 +467,10 @@ namespace UABEAvalonia.Android
 
             currentBundle =
                 bundle;
+
+
+            currentAssetsFile =
+                null;
 
 
             showingSerializedFiles =
@@ -452,28 +507,31 @@ namespace UABEAvalonia.Android
             ClearAssetList();
 
 
-            StringBuilder result =
-                new StringBuilder();
+            TextView header =
+                new TextView(this);
 
 
-            result.AppendLine(
-                "ASSETBUNDLE BERHASIL DIBUKA!"
-            );
-
-            result.AppendLine();
-
-            result.AppendLine(
+            header.Text =
+                "ASSETBUNDLE BERHASIL DIBUKA!\n\n" +
                 "Nama: " +
-                fileName
-            );
-
-            result.AppendLine(
+                fileName +
+                "\n" +
                 "Ukuran: " +
                 fileSize.ToString("N0") +
-                " bytes"
-            );
+                " bytes\n\n" +
+                "Pilih SerializedFile:";
 
-            result.AppendLine();
+
+            header.TextSize =
+                16;
+
+
+            if (assetList != null)
+            {
+                assetList.AddView(
+                    header
+                );
+            }
 
 
             var directories =
@@ -483,35 +541,13 @@ namespace UABEAvalonia.Android
                     .DirectoryInfos;
 
 
-            int count =
-                0;
-
-
-            foreach (var d in directories)
-            {
-                count++;
-            }
-
-
-            result.AppendLine(
-                "File dalam Bundle: " +
-                count
-            );
-
-            result.AppendLine();
-
-            result.AppendLine(
-                "=== SERIALIZED FILE ==="
-            );
-
-            result.AppendLine();
-
-
             int index =
                 0;
 
 
-            foreach (var directory in directories)
+            foreach (
+                var directory
+                in directories)
             {
                 int currentIndex =
                     index;
@@ -520,15 +556,23 @@ namespace UABEAvalonia.Android
                 index++;
 
 
-                string name =
+                string currentName =
                     directory.Name;
 
 
                 Button button =
                     new Button(this);
 
+
                 button.Text =
-                    name;
+                    index +
+                    ". " +
+                    currentName;
+
+
+                button.SetMinHeight(
+                    80
+                );
 
 
                 button.Click += delegate
@@ -541,20 +585,16 @@ namespace UABEAvalonia.Android
 
                 if (assetList != null)
                 {
-                    assetList.AddView(button);
+                    assetList.AddView(
+                        button
+                    );
                 }
-
-
-                result.AppendLine(
-                    index +
-                    ". " +
-                    name
-                );
             }
 
 
             SetStatus(
-                result.ToString()
+                "Bundle berhasil dibuka.\n" +
+                "Pilih SerializedFile."
             );
         }
 
@@ -635,23 +675,63 @@ namespace UABEAvalonia.Android
             ClearAssetList();
 
 
-            StringBuilder result =
-                new StringBuilder();
+            if (assetList == null)
+            {
+                return;
+            }
 
 
-            result.AppendLine(
-                "=== ASSET LIST ==="
+            // -----------------------------------------------------
+            // BACK TO SERIALIZED FILE
+            // -----------------------------------------------------
+
+            Button back =
+                new Button(this);
+
+
+            back.Text =
+                "← KEMBALI KE SERIALIZED FILE";
+
+
+            back.Click += delegate
+            {
+                ReturnToSerializedFiles();
+            };
+
+
+            assetList.AddView(
+                back
             );
 
-            result.AppendLine();
 
-            result.AppendLine(
+            // -----------------------------------------------------
+            // HEADER
+            // -----------------------------------------------------
+
+            TextView header =
+                new TextView(this);
+
+
+            header.Text =
+                "=== ASSET LIST ===\n\n" +
                 "Unity Version: " +
-                assetsFile.file.Metadata.UnityVersion
+                assetsFile.file.Metadata.UnityVersion +
+                "\n\n" +
+                "Pilih asset:";
+
+
+            header.TextSize =
+                16;
+
+
+            assetList.AddView(
+                header
             );
 
-            result.AppendLine();
 
+            // -----------------------------------------------------
+            // ASSETS
+            // -----------------------------------------------------
 
             int number =
                 0;
@@ -683,10 +763,17 @@ namespace UABEAvalonia.Android
                     number +
                     " | " +
                     typeName +
-                    "\nTypeID: " +
+                    "\n" +
+                    "TypeID: " +
                     currentAsset.TypeId +
-                    " | PathID: " +
+                    "\n" +
+                    "PathID: " +
                     currentAsset.PathId;
+
+
+                button.SetMinHeight(
+                    110
+                );
 
 
                 button.Click += delegate
@@ -698,41 +785,23 @@ namespace UABEAvalonia.Android
                 };
 
 
-                if (assetList != null)
-                {
-                    assetList.AddView(button);
-                }
-
-
-                result.AppendLine(
-                    "ASSET #" +
-                    number +
-                    " | " +
-                    typeName
+                assetList.AddView(
+                    button
                 );
-
-                result.AppendLine(
-                    "TypeID: " +
-                    currentAsset.TypeId
-                );
-
-                result.AppendLine(
-                    "PathID: " +
-                    currentAsset.PathId
-                );
-
-                result.AppendLine();
             }
 
 
             SetStatus(
-                result.ToString()
+                "Asset List: " +
+                number +
+                " asset.\n" +
+                "Tekan salah satu asset."
             );
         }
 
 
         // =========================================================
-        // ASSET TYPE NAME
+        // GET ASSET TYPE NAME
         // =========================================================
 
         private string GetAssetTypeName(
@@ -765,7 +834,7 @@ namespace UABEAvalonia.Android
 
 
         // =========================================================
-        // OPEN INSPECTOR
+        // OPEN ASSET INSPECTOR
         // =========================================================
 
         private void OpenAssetInspector(
@@ -781,7 +850,7 @@ namespace UABEAvalonia.Android
             try
             {
                 SetStatus(
-                    "Membaca TypeTree..."
+                    "Membaca asset..."
                 );
 
 
@@ -803,8 +872,38 @@ namespace UABEAvalonia.Android
                 ClearAssetList();
 
 
-                AddBackToAssetListButton();
+                if (assetList == null)
+                {
+                    return;
+                }
 
+
+                // -------------------------------------------------
+                // BACK
+                // -------------------------------------------------
+
+                Button back =
+                    new Button(this);
+
+
+                back.Text =
+                    "← KEMBALI KE ASSET LIST";
+
+
+                back.Click += delegate
+                {
+                    ReturnToAssetList();
+                };
+
+
+                assetList.AddView(
+                    back
+                );
+
+
+                // -------------------------------------------------
+                // HEADER
+                // -------------------------------------------------
 
                 string typeName =
                     GetAssetTypeName(
@@ -827,21 +926,26 @@ namespace UABEAvalonia.Android
                     "PathID: " +
                     asset.PathId +
                     "\n\n" +
-                    "Tekan field untuk melihat/mengedit nilai.";
+                    "Tekan ▶ untuk membuka field.";
 
 
                 header.TextSize =
                     16;
 
 
-                if (assetList != null)
-                {
-                    assetList.AddView(header);
-                }
+                assetList.AddView(
+                    header
+                );
 
 
-                int childCount =
-                    GetChildCount(baseField);
+                // -------------------------------------------------
+                // ROOT
+                // -------------------------------------------------
+
+                int rootChildren =
+                    GetChildCount(
+                        baseField
+                    );
 
 
                 TextView debug =
@@ -850,9 +954,11 @@ namespace UABEAvalonia.Android
 
                 debug.Text =
                     "\nRoot: " +
-                    SafeFieldName(baseField) +
-                    "\nChild count: " +
-                    childCount +
+                    SafeFieldName(
+                        baseField
+                    ) +
+                    "\nChild Count: " +
+                    rootChildren +
                     "\n";
 
 
@@ -860,17 +966,14 @@ namespace UABEAvalonia.Android
                     14;
 
 
-                if (assetList != null)
-                {
-                    assetList.AddView(debug);
-                }
+                assetList.AddView(
+                    debug
+                );
 
 
-                // ROOT
                 AddFieldTree(
                     baseField,
-                    0,
-                    true
+                    0
                 );
 
 
@@ -882,11 +985,11 @@ namespace UABEAvalonia.Android
 
 
                 SetStatus(
-                    "Inspector: " +
+                    "Inspector dibuka: " +
                     typeName +
-                    "\n\n" +
-                    "Root child count: " +
-                    childCount
+                    "\n" +
+                    "Child: " +
+                    rootChildren
                 );
             }
             catch (Exception ex)
@@ -894,7 +997,26 @@ namespace UABEAvalonia.Android
                 ClearAssetList();
 
 
-                AddBackToAssetListButton();
+                if (assetList != null)
+                {
+                    Button back =
+                        new Button(this);
+
+
+                    back.Text =
+                        "← KEMBALI KE ASSET LIST";
+
+
+                    back.Click += delegate
+                    {
+                        ReturnToAssetList();
+                    };
+
+
+                    assetList.AddView(
+                        back
+                    );
+                }
 
 
                 SetStatus(
@@ -911,8 +1033,7 @@ namespace UABEAvalonia.Android
 
         private void AddFieldTree(
             AssetTypeValueField field,
-            int depth,
-            bool root)
+            int depth)
         {
             if (
                 field == null ||
@@ -923,15 +1044,21 @@ namespace UABEAvalonia.Android
 
 
             int childCount =
-                GetChildCount(field);
+                GetChildCount(
+                    field
+                );
 
 
             string fieldName =
-                SafeFieldName(field);
+                SafeFieldName(
+                    field
+                );
 
 
             string value =
-                GetDisplayValue(field);
+                GetDisplayValue(
+                    field
+                );
 
 
             LinearLayout container =
@@ -951,7 +1078,9 @@ namespace UABEAvalonia.Android
 
 
             string indent =
-                MakeIndent(depth);
+                MakeIndent(
+                    depth
+                );
 
 
             if (childCount > 0)
@@ -966,7 +1095,9 @@ namespace UABEAvalonia.Android
             }
             else
             {
-                if (!string.IsNullOrEmpty(value))
+                if (
+                    !string.IsNullOrEmpty(
+                        value))
                 {
                     text.Text =
                         indent +
@@ -985,7 +1116,9 @@ namespace UABEAvalonia.Android
             }
 
 
-            container.AddView(text);
+            container.AddView(
+                text
+            );
 
 
             if (childCount > 0)
@@ -1007,7 +1140,7 @@ namespace UABEAvalonia.Android
                     i < childCount;
                     i++)
                 {
-                    AssetTypeValueField child =
+                    AssetTypeValueField? child =
                         GetChild(
                             field,
                             i
@@ -1090,22 +1223,22 @@ namespace UABEAvalonia.Android
             AssetTypeValueField field,
             int depth)
         {
-            if (field == null)
-            {
-                return;
-            }
-
-
             int childCount =
-                GetChildCount(field);
+                GetChildCount(
+                    field
+                );
 
 
             string fieldName =
-                SafeFieldName(field);
+                SafeFieldName(
+                    field
+                );
 
 
             string value =
-                GetDisplayValue(field);
+                GetDisplayValue(
+                    field
+                );
 
 
             TextView text =
@@ -1117,7 +1250,9 @@ namespace UABEAvalonia.Android
 
 
             string indent =
-                MakeIndent(depth);
+                MakeIndent(
+                    depth
+                );
 
 
             if (childCount > 0)
@@ -1132,7 +1267,9 @@ namespace UABEAvalonia.Android
             }
             else
             {
-                if (!string.IsNullOrEmpty(value))
+                if (
+                    !string.IsNullOrEmpty(
+                        value))
                 {
                     text.Text =
                         indent +
@@ -1151,15 +1288,20 @@ namespace UABEAvalonia.Android
             }
 
 
-            parent.AddView(text);
+            parent.AddView(
+                text
+            );
 
 
             if (childCount <= 0)
             {
                 text.Click += delegate
                 {
-                    ShowFieldEditor(field);
+                    ShowFieldEditor(
+                        field
+                    );
                 };
+
 
                 return;
             }
@@ -1182,7 +1324,7 @@ namespace UABEAvalonia.Android
                 i < childCount;
                 i++)
             {
-                AssetTypeValueField child =
+                AssetTypeValueField? child =
                     GetChild(
                         field,
                         i
@@ -1200,7 +1342,9 @@ namespace UABEAvalonia.Android
             }
 
 
-            parent.AddView(children);
+            parent.AddView(
+                children
+            );
 
 
             text.Click += delegate
@@ -1240,7 +1384,7 @@ namespace UABEAvalonia.Android
 
 
         // =========================================================
-        // CHILD HELPERS
+        // CHILD COUNT
         // =========================================================
 
         private int GetChildCount(
@@ -1262,6 +1406,10 @@ namespace UABEAvalonia.Android
             }
         }
 
+
+        // =========================================================
+        // GET CHILD
+        // =========================================================
 
         private AssetTypeValueField? GetChild(
             AssetTypeValueField field,
@@ -1313,7 +1461,7 @@ namespace UABEAvalonia.Android
 
 
         // =========================================================
-        // FIELD VALUE
+        // VALUE
         // =========================================================
 
         private string GetDisplayValue(
@@ -1325,78 +1473,26 @@ namespace UABEAvalonia.Android
                 {
                     return "";
                 }
+            }
+            catch
+            {
+                return "";
+            }
 
 
-                string type =
-                    GetValueTypeName(
-                        field
-                    );
+            // -----------------------------------------------------
+            // String
+            // -----------------------------------------------------
+
+            try
+            {
+                string value =
+                    field.Value.AsString;
 
 
-                switch (type)
+                if (!string.IsNullOrEmpty(value))
                 {
-                    case "string":
-                    case "String":
-                        return field.Value.AsString ?? "";
-
-
-                    case "bool":
-                    case "Bool":
-                        return field.Value.AsBool.ToString();
-
-
-                    case "SInt8":
-                    case "byte":
-                        return field.Value.AsSByte.ToString();
-
-
-                    case "UInt8":
-                        return field.Value.AsByte.ToString();
-
-
-                    case "SInt16":
-                    case "short":
-                        return field.Value.AsShort.ToString();
-
-
-                    case "UInt16":
-                        return field.Value.AsUShort.ToString();
-
-
-                    case "SInt32":
-                    case "int":
-                        return field.Value.AsInt.ToString();
-
-
-                    case "UInt32":
-                    case "unsigned int":
-                        return field.Value.AsUInt.ToString();
-
-
-                    case "SInt64":
-                    case "long":
-                        return field.Value.AsLong.ToString();
-
-
-                    case "UInt64":
-                    case "unsigned long":
-                        return field.Value.AsULong.ToString();
-
-
-                    case "float":
-                    case "Single":
-                        return field.Value.AsFloat
-                            .ToString(
-                                CultureInfo.InvariantCulture
-                            );
-
-
-                    case "double":
-                    case "Double":
-                        return field.Value.AsDouble
-                            .ToString(
-                                CultureInfo.InvariantCulture
-                            );
+                    return value;
                 }
             }
             catch
@@ -1404,19 +1500,110 @@ namespace UABEAvalonia.Android
             }
 
 
-            // Fallback.
-            // Jangan biarkan field hilang hanya karena
-            // tipe nilainya belum kita kenali.
+            // -----------------------------------------------------
+            // Bool
+            // -----------------------------------------------------
+
             try
             {
-                string raw =
-                    field.Value?.AsString ?? "";
+                return field.Value.AsBool
+                    .ToString();
+            }
+            catch
+            {
+            }
 
 
-                if (!string.IsNullOrEmpty(raw))
-                {
-                    return raw;
-                }
+            // -----------------------------------------------------
+            // Int
+            // -----------------------------------------------------
+
+            try
+            {
+                return field.Value.AsInt
+                    .ToString(
+                        CultureInfo.InvariantCulture
+                    );
+            }
+            catch
+            {
+            }
+
+
+            // -----------------------------------------------------
+            // UInt
+            // -----------------------------------------------------
+
+            try
+            {
+                return field.Value.AsUInt
+                    .ToString(
+                        CultureInfo.InvariantCulture
+                    );
+            }
+            catch
+            {
+            }
+
+
+            // -----------------------------------------------------
+            // Long
+            // -----------------------------------------------------
+
+            try
+            {
+                return field.Value.AsLong
+                    .ToString(
+                        CultureInfo.InvariantCulture
+                    );
+            }
+            catch
+            {
+            }
+
+
+            // -----------------------------------------------------
+            // ULong
+            // -----------------------------------------------------
+
+            try
+            {
+                return field.Value.AsULong
+                    .ToString(
+                        CultureInfo.InvariantCulture
+                    );
+            }
+            catch
+            {
+            }
+
+
+            // -----------------------------------------------------
+            // Float
+            // -----------------------------------------------------
+
+            try
+            {
+                return field.Value.AsFloat
+                    .ToString(
+                        CultureInfo.InvariantCulture
+                    );
+            }
+            catch
+            {
+            }
+
+
+            // -----------------------------------------------------
+            // Double
+            // -----------------------------------------------------
+
+            try
+            {
+                return field.Value.AsDouble
+                    .ToString(
+                        CultureInfo.InvariantCulture
+                    );
             }
             catch
             {
@@ -1428,48 +1615,304 @@ namespace UABEAvalonia.Android
 
 
         // =========================================================
-        // VALUE TYPE
+        // FIELD EDITOR
         // =========================================================
 
-        private string GetValueTypeName(
+        private void ShowFieldEditor(
             AssetTypeValueField field)
         {
-            try
-            {
-                var template =
-                    field.TemplateField;
+            string fieldName =
+                SafeFieldName(
+                    field
+                );
 
 
-                if (template != null)
+            string currentValue =
+                GetDisplayValue(
+                    field
+                );
+
+
+            AlertDialog.Builder builder =
+                new AlertDialog.Builder(
+                    this
+                );
+
+
+            builder.SetTitle(
+                "EDIT FIELD"
+            );
+
+
+            LinearLayout layout =
+                new LinearLayout(this);
+
+
+            layout.Orientation =
+                Orientation.Vertical;
+
+
+            layout.SetPadding(
+                40,
+                20,
+                40,
+                20
+            );
+
+
+            TextView info =
+                new TextView(this);
+
+
+            info.Text =
+                "Field:\n" +
+                fieldName +
+                "\n\n" +
+                "Nilai saat ini:\n" +
+                currentValue +
+                "\n\n" +
+                "Nilai baru:";
+
+
+            info.TextSize =
+                16;
+
+
+            layout.AddView(
+                info
+            );
+
+
+            EditText input =
+                new EditText(this);
+
+
+            input.Text =
+                currentValue;
+
+
+            input.SetSingleLine(
+                true
+            );
+
+
+            layout.AddView(
+                input
+            );
+
+
+            builder.SetView(
+                layout
+            );
+
+
+            builder.SetNegativeButton(
+                "CANCEL",
+                (sender, args) =>
                 {
-                    Type t =
-                        template.GetType();
+                }
+            );
 
 
-                    var p =
-                        t.GetProperty("Type");
-
-
-                    if (p != null)
+            builder.SetPositiveButton(
+                "APPLY",
+                (sender, args) =>
+                {
+                    try
                     {
-                        object? value =
-                            p.GetValue(template);
+                        ApplyFieldValue(
+                            field,
+                            input.Text ?? ""
+                        );
 
 
-                        if (value != null)
-                        {
-                            return value.ToString()
-                                ?? "";
-                        }
+                        SetStatus(
+                            "Field berhasil diubah:\n" +
+                            fieldName
+                        );
+                    }
+                    catch (Exception ex)
+                    {
+                        SetStatus(
+                            "Gagal mengubah field:\n\n" +
+                            ex.Message
+                        );
                     }
                 }
+            );
+
+
+            builder.Show();
+        }
+
+
+        // =========================================================
+        // APPLY FIELD VALUE
+        // =========================================================
+
+        private void ApplyFieldValue(
+            AssetTypeValueField field,
+            string value)
+        {
+            // =====================================================
+            // Karena tipe field bisa berbeda-beda, kita coba
+            // beberapa tipe yang umum digunakan Unity.
+            // =====================================================
+
+            try
+            {
+                field.Value.AsString =
+                    value;
+
+                return;
             }
             catch
             {
             }
 
 
-            return "";
+            if (
+                bool.TryParse(
+                    value,
+                    out bool boolValue))
+            {
+                try
+                {
+                    field.Value.AsBool =
+                        boolValue;
+
+                    return;
+                }
+                catch
+                {
+                }
+            }
+
+
+            if (
+                int.TryParse(
+                    value,
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out int intValue))
+            {
+                try
+                {
+                    field.Value.AsInt =
+                        intValue;
+
+                    return;
+                }
+                catch
+                {
+                }
+            }
+
+
+            if (
+                uint.TryParse(
+                    value,
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out uint uintValue))
+            {
+                try
+                {
+                    field.Value.AsUInt =
+                        uintValue;
+
+                    return;
+                }
+                catch
+                {
+                }
+            }
+
+
+            if (
+                long.TryParse(
+                    value,
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out long longValue))
+            {
+                try
+                {
+                    field.Value.AsLong =
+                        longValue;
+
+                    return;
+                }
+                catch
+                {
+                }
+            }
+
+
+            if (
+                ulong.TryParse(
+                    value,
+                    NumberStyles.Integer,
+                    CultureInfo.InvariantCulture,
+                    out ulong ulongValue))
+            {
+                try
+                {
+                    field.Value.AsULong =
+                        ulongValue;
+
+                    return;
+                }
+                catch
+                {
+                }
+            }
+
+
+            if (
+                float.TryParse(
+                    value,
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out float floatValue))
+            {
+                try
+                {
+                    field.Value.AsFloat =
+                        floatValue;
+
+                    return;
+                }
+                catch
+                {
+                }
+            }
+
+
+            if (
+                double.TryParse(
+                    value,
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out double doubleValue))
+            {
+                try
+                {
+                    field.Value.AsDouble =
+                        doubleValue;
+
+                    return;
+                }
+                catch
+                {
+                }
+            }
+
+
+            throw new Exception(
+                "Tipe field tidak dapat diubah " +
+                "oleh editor ini."
+            );
         }
 
 
@@ -1494,417 +1937,8 @@ namespace UABEAvalonia.Android
 
 
         // =========================================================
-        // FIELD EDITOR
-        // =========================================================
-
-        private void ShowFieldEditor(
-            AssetTypeValueField field)
-        {
-            if (field == null)
-            {
-                return;
-            }
-
-
-            string fieldName =
-                SafeFieldName(field);
-
-
-            string currentValue =
-                GetDisplayValue(field);
-
-
-            AlertDialog.Builder builder =
-                new AlertDialog.Builder(this);
-
-
-            builder.SetTitle(
-                "EDIT FIELD"
-            );
-
-
-            LinearLayout layout =
-                new LinearLayout(this);
-
-
-            layout.Orientation =
-                Orientation.Vertical;
-
-
-            layout.SetPadding(
-                40,
-                10,
-                40,
-                10
-            );
-
-
-            TextView info =
-                new TextView(this);
-
-
-            info.Text =
-                "Field:\n" +
-                fieldName +
-                "\n\n" +
-                "Nilai saat ini:\n" +
-                currentValue +
-                "\n";
-
-
-            info.TextSize =
-                16;
-
-
-            layout.AddView(info);
-
-
-            EditText input =
-                new EditText(this);
-
-
-            input.Text =
-                currentValue;
-
-
-            input.SetSingleLine(true);
-
-
-            layout.AddView(input);
-
-
-            builder.SetView(layout);
-
-
-            builder.SetNegativeButton(
-                "CANCEL",
-                (sender, args) =>
-                {
-                }
-            );
-
-
-            builder.SetPositiveButton(
-                "APPLY",
-                (sender, args) =>
-                {
-                    try
-                    {
-                        string newValue =
-                            input.Text ?? "";
-
-
-                        ApplyFieldValue(
-                            field,
-                            newValue
-                        );
-
-
-                        SetStatus(
-                            "Field berhasil diubah:\n\n" +
-                            fieldName +
-                            " = " +
-                            newValue
-                        );
-                    }
-                    catch (Exception ex)
-                    {
-                        SetStatus(
-                            "Gagal mengubah field:\n\n" +
-                            ex.Message
-                        );
-                    }
-                }
-            );
-
-
-            builder.Show();
-        }
-
-
-        // =========================================================
-        // APPLY FIELD
-        // =========================================================
-
-        private void ApplyFieldValue(
-            AssetTypeValueField field,
-            string value)
-        {
-            string type =
-                GetValueTypeName(field);
-
-
-            switch (type)
-            {
-                case "string":
-                case "String":
-                    field.Value.AsString =
-                        value;
-                    return;
-
-
-                case "bool":
-                case "Bool":
-                    if (
-                        !bool.TryParse(
-                            value,
-                            out bool boolValue))
-                    {
-                        throw new Exception(
-                            "Gunakan true atau false."
-                        );
-                    }
-
-
-                    field.Value.AsBool =
-                        boolValue;
-
-                    return;
-
-
-                case "SInt32":
-                case "int":
-                    if (
-                        !int.TryParse(
-                            value,
-                            NumberStyles.Integer,
-                            CultureInfo.InvariantCulture,
-                            out int intValue))
-                    {
-                        throw new Exception(
-                            "Nilai harus integer."
-                        );
-                    }
-
-
-                    field.Value.AsInt =
-                        intValue;
-
-                    return;
-
-
-                case "UInt32":
-                case "unsigned int":
-                    if (
-                        !uint.TryParse(
-                            value,
-                            NumberStyles.Integer,
-                            CultureInfo.InvariantCulture,
-                            out uint uintValue))
-                    {
-                        throw new Exception(
-                            "Nilai harus unsigned integer."
-                        );
-                    }
-
-
-                    field.Value.AsUInt =
-                        uintValue;
-
-                    return;
-
-
-                case "SInt64":
-                case "long":
-                    if (
-                        !long.TryParse(
-                            value,
-                            NumberStyles.Integer,
-                            CultureInfo.InvariantCulture,
-                            out long longValue))
-                    {
-                        throw new Exception(
-                            "Nilai harus long."
-                        );
-                    }
-
-
-                    field.Value.AsLong =
-                        longValue;
-
-                    return;
-
-
-                case "UInt64":
-                case "unsigned long":
-                    if (
-                        !ulong.TryParse(
-                            value,
-                            NumberStyles.Integer,
-                            CultureInfo.InvariantCulture,
-                            out ulong ulongValue))
-                    {
-                        throw new Exception(
-                            "Nilai harus unsigned long."
-                        );
-                    }
-
-
-                    field.Value.AsULong =
-                        ulongValue;
-
-                    return;
-
-
-                case "SInt16":
-                case "short":
-                    if (
-                        !short.TryParse(
-                            value,
-                            NumberStyles.Integer,
-                            CultureInfo.InvariantCulture,
-                            out short shortValue))
-                    {
-                        throw new Exception(
-                            "Nilai harus short."
-                        );
-                    }
-
-
-                    field.Value.AsShort =
-                        shortValue;
-
-                    return;
-
-
-                case "UInt16":
-                    if (
-                        !ushort.TryParse(
-                            value,
-                            NumberStyles.Integer,
-                            CultureInfo.InvariantCulture,
-                            out ushort ushortValue))
-                    {
-                        throw new Exception(
-                            "Nilai harus ushort."
-                        );
-                    }
-
-
-                    field.Value.AsUShort =
-                        ushortValue;
-
-                    return;
-
-
-                case "UInt8":
-                case "byte":
-                    if (
-                        !byte.TryParse(
-                            value,
-                            NumberStyles.Integer,
-                            CultureInfo.InvariantCulture,
-                            out byte byteValue))
-                    {
-                        throw new Exception(
-                            "Nilai harus byte."
-                        );
-                    }
-
-
-                    field.Value.AsByte =
-                        byteValue;
-
-                    return;
-
-
-                case "SInt8":
-                    if (
-                        !sbyte.TryParse(
-                            value,
-                            NumberStyles.Integer,
-                            CultureInfo.InvariantCulture,
-                            out sbyte sbyteValue))
-                    {
-                        throw new Exception(
-                            "Nilai harus sbyte."
-                        );
-                    }
-
-
-                    field.Value.AsSByte =
-                        sbyteValue;
-
-                    return;
-
-
-                case "float":
-                case "Single":
-                    if (
-                        !float.TryParse(
-                            value,
-                            NumberStyles.Float,
-                            CultureInfo.InvariantCulture,
-                            out float floatValue))
-                    {
-                        throw new Exception(
-                            "Nilai harus float."
-                        );
-                    }
-
-
-                    field.Value.AsFloat =
-                        floatValue;
-
-                    return;
-
-
-                case "double":
-                case "Double":
-                    if (
-                        !double.TryParse(
-                            value,
-                            NumberStyles.Float,
-                            CultureInfo.InvariantCulture,
-                            out double doubleValue))
-                    {
-                        throw new Exception(
-                            "Nilai harus double."
-                        );
-                    }
-
-
-                    field.Value.AsDouble =
-                        doubleValue;
-
-                    return;
-
-
-                default:
-                    throw new Exception(
-                        "Tipe field belum didukung: " +
-                        type
-                    );
-            }
-        }
-
-
-        // =========================================================
         // BACK TO ASSET LIST
         // =========================================================
-
-        private void AddBackToAssetListButton()
-        {
-            Button back =
-                new Button(this);
-
-
-            back.Text =
-                "← KEMBALI KE ASSET LIST";
-
-
-            back.Click += delegate
-            {
-                ReturnToAssetList();
-            };
-
-
-            if (assetList != null)
-            {
-                assetList.AddView(back);
-            }
-        }
-
 
         private void ReturnToAssetList()
         {
@@ -1928,6 +1962,38 @@ namespace UABEAvalonia.Android
 
 
         // =========================================================
+        // BACK TO SERIALIZED FILE
+        // =========================================================
+
+        private void ReturnToSerializedFiles()
+        {
+            if (currentBundle == null)
+            {
+                return;
+            }
+
+
+            showingInspector =
+                false;
+
+            showingAssetList =
+                false;
+
+            showingSerializedFiles =
+                true;
+
+
+            ClearAssetList();
+
+
+            ShowSerializedFiles(
+                0,
+                "AssetBundle"
+            );
+        }
+
+
+        // =========================================================
         // ANDROID BACK
         // =========================================================
 
@@ -1940,25 +2006,9 @@ namespace UABEAvalonia.Android
             }
 
 
-            if (
-                showingAssetList &&
-                currentBundle != null)
+            if (showingAssetList)
             {
-                showingAssetList =
-                    false;
-
-                showingInspector =
-                    false;
-
-                showingSerializedFiles =
-                    true;
-
-
-                ShowSerializedFiles(
-                    0,
-                    "AssetBundle"
-                );
-
+                ReturnToSerializedFiles();
                 return;
             }
 
@@ -1968,11 +2018,14 @@ namespace UABEAvalonia.Android
                 showingSerializedFiles =
                     false;
 
+
                 ClearAssetList();
+
 
                 SetStatus(
                     "Tekan OPEN UNITY3D."
                 );
+
 
                 return;
             }
@@ -1983,7 +2036,7 @@ namespace UABEAvalonia.Android
 
 
         // =========================================================
-        // CLEAR
+        // CLEAR LIST
         // =========================================================
 
         private void ClearAssetList()
@@ -2005,14 +2058,16 @@ namespace UABEAvalonia.Android
         private void SetStatus(
             string message)
         {
-            RunOnUiThread(delegate
-            {
-                if (status != null)
+            RunOnUiThread(
+                delegate
                 {
-                    status.Text =
-                        message;
+                    if (status != null)
+                    {
+                        status.Text =
+                            message;
+                    }
                 }
-            });
+            );
         }
     }
 }
