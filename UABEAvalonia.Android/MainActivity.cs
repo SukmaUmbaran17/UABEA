@@ -4,11 +4,12 @@ using Android.OS;
 using Android.Provider;
 using Android.Widget;
 
+using AssetsTools.NET;
 using AssetsTools.NET.Extra;
 
 using System;
-using System.Collections.Generic;
 using System.IO;
+using System.Text;
 
 using AndroidUri = global::Android.Net.Uri;
 
@@ -22,73 +23,28 @@ namespace UABEAvalonia.Android
     {
         private const int PickFileRequestCode = 1001;
 
-        private LinearLayout? mainLayout;
         private TextView? status;
 
         private AssetsManager? assetsManager;
 
-        private readonly List<AssetInfoData> assetList =
-            new List<AssetInfoData>();
 
-
-        // =====================================================
-        // DATA ASSET
-        // =====================================================
-
-        private class AssetInfoData
-        {
-            public int Number { get; set; }
-
-            public int TypeId { get; set; }
-
-            public long PathId { get; set; }
-
-            public string TypeName { get; set; } = "Unknown";
-
-            public string FileName { get; set; } = "";
-        }
-
-
-        // =====================================================
+        // =========================================================
         // ON CREATE
-        // =====================================================
+        // =========================================================
 
-        protected override void OnCreate(
-            Bundle? savedInstanceState)
+        protected override void OnCreate(Bundle? savedInstanceState)
         {
             base.OnCreate(savedInstanceState);
 
+            // -----------------------------------------------------
+            // BUAT UI TERLEBIH DAHULU
+            // -----------------------------------------------------
 
-            // =================================================
-            // ASSETS MANAGER
-            // =================================================
+            LinearLayout root = new LinearLayout(this);
 
-            try
-            {
-                assetsManager =
-                    new AssetsManager();
-            }
-            catch (Exception ex)
-            {
-                assetsManager = null;
+            root.Orientation = Orientation.Vertical;
 
-                System.Diagnostics.Debug.WriteLine(
-                    ex.ToString()
-                );
-            }
-
-
-            // =================================================
-            // MAIN LAYOUT
-            // =================================================
-
-            mainLayout =
-                new LinearLayout(this);
-
-            mainLayout.Orientation =
-                Orientation.Vertical;
-
-            mainLayout.SetPadding(
+            root.SetPadding(
                 30,
                 30,
                 30,
@@ -96,79 +52,54 @@ namespace UABEAvalonia.Android
             );
 
 
-            // =================================================
-            // TITLE
-            // =================================================
+            // -----------------------------------------------------
+            // JUDUL
+            // -----------------------------------------------------
 
-            TextView title =
-                new TextView(this);
+            TextView title = new TextView(this);
 
-            title.Text =
-                "UABEA Android";
+            title.Text = "UABEA Android";
 
-            title.TextSize =
-                24;
+            title.TextSize = 24;
 
 
-            // =================================================
-            // OPEN BUTTON
-            // =================================================
+            // -----------------------------------------------------
+            // TOMBOL
+            // -----------------------------------------------------
 
-            Button openButton =
-                new Button(this);
+            Button openButton = new Button(this);
 
-            openButton.Text =
-                "OPEN UNITY3D";
+            openButton.Text = "OPEN UNITY3D";
 
 
-            openButton.Click +=
-                delegate
-                {
-                    OpenFilePicker();
-                };
-
-
-            // =================================================
+            // -----------------------------------------------------
             // STATUS
-            // =================================================
+            // -----------------------------------------------------
 
-            status =
-                new TextView(this);
+            status = new TextView(this);
 
-            status.TextSize =
-                16;
+            status.TextSize = 16;
 
-
-            if (assetsManager != null)
-            {
-                status.Text =
-                    "✅ AssetsTools.NET siap.\n\n" +
-                    "Tekan OPEN UNITY3D.";
-            }
-            else
-            {
-                status.Text =
-                    "❌ AssetsTools.NET gagal dimuat.";
-            }
+            status.Text =
+                "Menyiapkan UABEA Android...\n";
 
 
-            // =================================================
+            // -----------------------------------------------------
             // SCROLL
-            // =================================================
+            // -----------------------------------------------------
 
-            ScrollView scroll =
-                new ScrollView(this);
+            ScrollView scrollView = new ScrollView(this);
 
-            scroll.AddView(status);
+            scrollView.AddView(status);
 
 
-            // =================================================
-            // ADD VIEW
-            // =================================================
+            // -----------------------------------------------------
+            // MASUKKAN KE ROOT
+            // -----------------------------------------------------
 
-            mainLayout.AddView(title);
+            root.AddView(title);
 
-            mainLayout.AddView(openButton);
+            root.AddView(openButton);
 
 
             LinearLayout.LayoutParams scrollParams =
@@ -177,26 +108,61 @@ namespace UABEAvalonia.Android
                     0
                 );
 
-            scrollParams.Weight =
-                1;
+            scrollParams.Weight = 1;
 
-
-            mainLayout.AddView(
-                scroll,
+            root.AddView(
+                scrollView,
                 scrollParams
             );
 
 
-            SetContentView(mainLayout);
+            // -----------------------------------------------------
+            // TAMPILKAN UI
+            // -----------------------------------------------------
+
+            SetContentView(root);
+
+
+            // -----------------------------------------------------
+            // EVENT TOMBOL
+            // -----------------------------------------------------
+
+            openButton.Click += delegate
+            {
+                OpenFilePicker();
+            };
+
+
+            // -----------------------------------------------------
+            // BARU SEKARANG BUAT ASSETSMANAGER
+            // -----------------------------------------------------
+
+            try
+            {
+                assetsManager = new AssetsManager();
+
+                SetStatus(
+                    "✅ AssetsTools.NET siap.\n\n" +
+                    "Tekan OPEN UNITY3D untuk memilih file."
+                );
+            }
+            catch (Exception ex)
+            {
+                assetsManager = null;
+
+                SetStatus(
+                    "❌ AssetsTools.NET gagal dimuat.\n\n" +
+                    ex.Message
+                );
+            }
         }
 
 
-        // =====================================================
-        // UNITY TYPE NAME
-        // =====================================================
+        // =========================================================
+        // UNITY TYPE ID
+        // =========================================================
 
-        private string GetUnityTypeName(
-            int typeId)
+        private string GetUnityTypeName(int typeId)
         {
             switch (typeId)
             {
@@ -240,23 +206,21 @@ namespace UABEAvalonia.Android
                     return "ParticleSystemRenderer";
 
                 default:
-                    return "Unknown";
+                    return "TypeID " + typeId;
             }
         }
 
 
-        // =====================================================
+        // =========================================================
         // FILE PICKER
-        // =====================================================
+        // =========================================================
 
         private void OpenFilePicker()
         {
             try
             {
                 Intent intent =
-                    new Intent(
-                        Intent.ActionOpenDocument
-                    );
+                    new Intent(Intent.ActionOpenDocument);
 
                 intent.AddCategory(
                     Intent.CategoryOpenable
@@ -272,17 +236,17 @@ namespace UABEAvalonia.Android
             }
             catch (Exception ex)
             {
-                ShowError(
-                    "File Picker gagal",
-                    ex
+                SetStatus(
+                    "❌ File Picker gagal.\n\n" +
+                    ex.Message
                 );
             }
         }
 
 
-        // =====================================================
+        // =========================================================
         // FILE PICKER RESULT
-        // =====================================================
+        // =========================================================
 
         protected override void OnActivityResult(
             int requestCode,
@@ -322,8 +286,7 @@ namespace UABEAvalonia.Android
             }
 
 
-            AndroidUri? uri =
-                data.Data;
+            AndroidUri? uri = data.Data;
 
 
             if (uri == null)
@@ -342,23 +305,25 @@ namespace UABEAvalonia.Android
             }
             catch (Exception ex)
             {
-                ShowError(
-                    "Gagal membuka file",
-                    ex
+                SetStatus(
+                    "❌ Gagal membuka file.\n\n" +
+                    ex.Message
+                );
+
+                System.Diagnostics.Debug.WriteLine(
+                    ex.ToString()
                 );
             }
         }
 
 
-        // =====================================================
+        // =========================================================
         // GET FILE NAME
-        // =====================================================
+        // =========================================================
 
-        private string GetFileName(
-            AndroidUri uri)
+        private string GetFileName(AndroidUri uri)
         {
-            string fileName =
-                "temp.unity3d";
+            string fileName = "temp.unity3d";
 
 
             using (
@@ -392,11 +357,26 @@ namespace UABEAvalonia.Android
                             !string.IsNullOrWhiteSpace(
                                 detectedName))
                         {
-                            fileName =
-                                detectedName;
+                            fileName = detectedName;
                         }
                     }
                 }
+            }
+
+
+            // -----------------------------------------------------
+            // AMANKAN NAMA FILE
+            // -----------------------------------------------------
+
+            foreach (
+                char invalidChar
+                in Path.GetInvalidFileNameChars())
+            {
+                fileName =
+                    fileName.Replace(
+                        invalidChar,
+                        '_'
+                    );
             }
 
 
@@ -404,9 +384,9 @@ namespace UABEAvalonia.Android
         }
 
 
-        // =====================================================
-        // COPY TO CACHE
-        // =====================================================
+        // =========================================================
+        // COPY FILE TO CACHE
+        // =========================================================
 
         private string CopyToCache(
             AndroidUri uri,
@@ -420,7 +400,7 @@ namespace UABEAvalonia.Android
             }
 
 
-            string path =
+            string cachePath =
                 Path.Combine(
                     CacheDir.AbsolutePath,
                     fileName
@@ -428,7 +408,7 @@ namespace UABEAvalonia.Android
 
 
             using (
-                var input =
+                Stream? input =
                     ContentResolver.OpenInputStream(uri))
             {
                 if (input == null)
@@ -441,28 +421,27 @@ namespace UABEAvalonia.Android
 
                 using (
                     FileStream output =
-                        File.Create(path))
+                        File.Create(cachePath))
                 {
                     input.CopyTo(output);
                 }
             }
 
 
-            return path;
+            return cachePath;
         }
 
 
-        // =====================================================
+        // =========================================================
         // READ UNITY BUNDLE
-        // =====================================================
+        // =========================================================
 
-        private void ReadUnityBundle(
-            AndroidUri uri)
+        private void ReadUnityBundle(AndroidUri uri)
         {
             if (assetsManager == null)
             {
                 throw new Exception(
-                    "AssetsManager tidak tersedia."
+                    "AssetsManager belum tersedia."
                 );
             }
 
@@ -472,9 +451,22 @@ namespace UABEAvalonia.Android
             );
 
 
+            // -----------------------------------------------------
+            // NAMA FILE
+            // -----------------------------------------------------
+
             string fileName =
                 GetFileName(uri);
 
+
+            SetStatus(
+                "⏳ Menyalin file ke cache..."
+            );
+
+
+            // -----------------------------------------------------
+            // COPY
+            // -----------------------------------------------------
 
             string cachePath =
                 CopyToCache(
@@ -483,18 +475,22 @@ namespace UABEAvalonia.Android
                 );
 
 
-            FileInfo fileInfo =
+            FileInfo info =
                 new FileInfo(cachePath);
 
 
             long fileSize =
-                fileInfo.Length;
+                info.Length;
 
 
             SetStatus(
                 "⏳ Membuka AssetBundle..."
             );
 
+
+            // -----------------------------------------------------
+            // LOAD BUNDLE
+            // -----------------------------------------------------
 
             BundleFileInstance bundle =
                 assetsManager.LoadBundleFile(
@@ -510,9 +506,9 @@ namespace UABEAvalonia.Android
             }
 
 
-            // =================================================
+            // -----------------------------------------------------
             // DIRECTORY
-            // =================================================
+            // -----------------------------------------------------
 
             var directories =
                 bundle.file
@@ -520,97 +516,106 @@ namespace UABEAvalonia.Android
                     .DirectoryInfos;
 
 
-            int directoryCount =
-                0;
+            int directoryCount = 0;
 
-
-            foreach (
-                var directory
-                in directories)
+            foreach (var directory in directories)
             {
                 directoryCount++;
             }
 
 
-            // =================================================
-            // CLEAR OLD ASSETS
-            // =================================================
+            // -----------------------------------------------------
+            // HASIL
+            // -----------------------------------------------------
 
-            assetList.Clear();
-
-
-            // =================================================
-            // HEADER
-            // =================================================
-
-            LinearLayout assetLayout =
-                CreateAssetLayout();
+            StringBuilder result =
+                new StringBuilder();
 
 
-            AddHeader(
-                assetLayout,
-                fileName,
-                fileSize,
+            result.AppendLine(
+                "ASSETBUNDLE BERHASIL DIBUKA!"
+            );
+
+            result.AppendLine();
+
+            result.AppendLine(
+                "Nama: " +
+                fileName
+            );
+
+            result.AppendLine(
+                "Ukuran: " +
+                fileSize.ToString("N0") +
+                " bytes"
+            );
+
+            result.AppendLine();
+
+            result.AppendLine(
+                "File dalam Bundle: " +
                 directoryCount
             );
 
+            result.AppendLine();
 
-            // =================================================
-            // SERIALIZED FILE
-            // =================================================
+            result.AppendLine(
+                "=== SERIALIZED FILE ==="
+            );
 
-            int fileNumber =
-                0;
+            result.AppendLine();
 
 
-            foreach (
-                var directory
-                in directories)
+            // -----------------------------------------------------
+            // LOAD SETIAP FILE DALAM BUNDLE
+            // -----------------------------------------------------
+
+            int fileNumber = 0;
+
+
+            foreach (var directory in directories)
             {
                 fileNumber++;
 
 
-                AddText(
-                    assetLayout,
-                    ""
-                );
-
-
-                AddText(
-                    assetLayout,
-                    "=== SERIALIZED FILE " +
+                result.AppendLine(
                     fileNumber +
-                    " ==="
-                );
-
-
-                AddText(
-                    assetLayout,
+                    ". " +
                     directory.Name
                 );
 
 
                 try
                 {
+                    SetStatus(
+                        "⏳ Membaca serialized file " +
+                        fileNumber +
+                        "..."
+                    );
+
+
                     AssetsFileInstance assetsFile =
-                        assetsManager
-                            .LoadAssetsFileFromBundle(
-                                bundle,
-                                fileNumber - 1,
-                                false
-                            );
+                        assetsManager.LoadAssetsFileFromBundle(
+                            bundle,
+                            fileNumber - 1,
+                            false
+                        );
 
 
                     if (assetsFile == null)
                     {
-                        AddText(
-                            assetLayout,
-                            "❌ Tidak dapat dimuat."
+                        result.AppendLine(
+                            "   ❌ Tidak dapat dimuat."
                         );
+
+                        result.AppendLine();
 
                         continue;
                     }
 
+
+                    // -------------------------------------------------
+                    // UNITY VERSION
+                    // -------------------------------------------------
 
                     string unityVersion =
                         assetsFile
@@ -619,58 +624,52 @@ namespace UABEAvalonia.Android
                             .UnityVersion;
 
 
-                    AddText(
-                        assetLayout,
-                        "Unity Version: " +
+                    result.AppendLine(
+                        "   Unity Version: " +
                         unityVersion
                     );
 
 
-                    // =========================================
+                    // -------------------------------------------------
                     // ASSET COUNT
-                    // =========================================
+                    // -------------------------------------------------
 
-                    int assetCount =
-                        0;
+                    int assetCount = 0;
 
 
                     foreach (
-                        var asset
+                        var assetInfo
                         in assetsFile.file.AssetInfos)
                     {
                         assetCount++;
                     }
 
 
-                    AddText(
-                        assetLayout,
-                        "Asset Count: " +
+                    result.AppendLine(
+                        "   Asset Count: " +
                         assetCount
                     );
 
 
-                    AddText(
-                        assetLayout,
-                        ""
+                    result.AppendLine();
+
+
+                    // -------------------------------------------------
+                    // ASSET LIST
+                    // -------------------------------------------------
+
+                    result.AppendLine(
+                        "   === ASSET LIST ==="
                     );
 
-
-                    AddText(
-                        assetLayout,
-                        "=== ASSET LIST ==="
-                    );
+                    result.AppendLine();
 
 
-                    // =========================================
-                    // ASSET BUTTONS
-                    // =========================================
-
-                    int assetNumber =
-                        0;
+                    int assetNumber = 0;
 
 
                     foreach (
-                        var asset
+                        var assetInfo
                         in assetsFile.file.AssetInfos)
                     {
                         assetNumber++;
@@ -678,477 +677,68 @@ namespace UABEAvalonia.Android
 
                         string typeName =
                             GetUnityTypeName(
-                                asset.TypeId
+                                assetInfo.TypeId
                             );
 
 
-                        AssetInfoData info =
-                            new AssetInfoData
-                            {
-                                Number =
-                                    assetNumber,
-
-                                TypeId =
-                                    asset.TypeId,
-
-                                PathId =
-                                    asset.PathId,
-
-                                TypeName =
-                                    typeName,
-
-                                FileName =
-                                    directory.Name
-                            };
-
-
-                        assetList.Add(info);
-
-
-                        Button assetButton =
-                            new Button(this);
-
-
-                        assetButton.Text =
+                        result.AppendLine(
+                            "   " +
                             assetNumber +
                             ". " +
-                            typeName +
-                            "\n" +
-                            "TypeID: " +
-                            asset.TypeId;
-
-
-                        assetButton.TextSize =
-                            14;
-
-
-                        AssetInfoData selected =
-                            info;
-
-
-                        assetButton.Click +=
-                            delegate
-                            {
-                                ShowAssetDetail(
-                                    selected
-                                );
-                            };
-
-
-                        assetLayout.AddView(
-                            assetButton
+                            typeName
                         );
+
+
+                        result.AppendLine(
+                            "      TypeID: " +
+                            assetInfo.TypeId
+                        );
+
+
+                        result.AppendLine(
+                            "      PathID: " +
+                            assetInfo.PathId
+                        );
+
+
+                        result.AppendLine();
                     }
                 }
                 catch (Exception ex)
                 {
-                    AddText(
-                        assetLayout,
-                        "❌ ERROR: " +
+                    result.AppendLine(
+                        "   ❌ ERROR: " +
                         ex.Message
                     );
+
+                    result.AppendLine();
                 }
             }
 
 
-            // =================================================
-            // REPLACE CONTENT
-            // =================================================
+            // -----------------------------------------------------
+            // TAMPILKAN HASIL
+            // -----------------------------------------------------
 
-            SetContentView(
-                assetLayout
-            );
-        }
-
-
-        // =====================================================
-        // CREATE ASSET LAYOUT
-        // =====================================================
-
-        private LinearLayout CreateAssetLayout()
-        {
-            LinearLayout layout =
-                new LinearLayout(this);
-
-            layout.Orientation =
-                Orientation.Vertical;
-
-            layout.SetPadding(
-                30,
-                30,
-                30,
-                30
-            );
-
-
-            ScrollView scroll =
-                new ScrollView(this);
-
-
-            LinearLayout content =
-                new LinearLayout(this);
-
-            content.Orientation =
-                Orientation.Vertical;
-
-
-            scroll.AddView(content);
-
-
-            layout.AddView(
-                scroll,
-                new LinearLayout.LayoutParams(
-                    -1,
-                    -1
-                )
-            );
-
-
-            return content;
-        }
-
-
-        // =====================================================
-        // HEADER
-        // =====================================================
-
-        private void AddHeader(
-            LinearLayout layout,
-            string fileName,
-            long fileSize,
-            int directoryCount)
-        {
-            AddText(
-                layout,
-                "UABEA Android"
-            );
-
-
-            AddText(
-                layout,
-                ""
-            );
-
-
-            AddText(
-                layout,
-                "ASSETBUNDLE BERHASIL DIBUKA!"
-            );
-
-
-            AddText(
-                layout,
-                ""
-            );
-
-
-            AddText(
-                layout,
-                "Nama: " +
-                fileName
-            );
-
-
-            AddText(
-                layout,
-                "Ukuran: " +
-                fileSize.ToString("N0") +
-                " bytes"
-            );
-
-
-            AddText(
-                layout,
-                "File dalam Bundle: " +
-                directoryCount
-            );
-
-
-            AddText(
-                layout,
-                ""
-            );
-        }
-
-
-        // =====================================================
-        // ADD TEXT
-        // =====================================================
-
-        private void AddText(
-            LinearLayout layout,
-            string text)
-        {
-            TextView view =
-                new TextView(this);
-
-
-            view.Text =
-                text;
-
-
-            view.TextSize =
-                16;
-
-
-            view.SetPadding(
-                0,
-                8,
-                0,
-                8
-            );
-
-
-            layout.AddView(
-                view
-            );
-        }
-
-
-        // =====================================================
-        // ASSET DETAIL
-        // =====================================================
-
-        private void ShowAssetDetail(
-            AssetInfoData asset)
-        {
-            LinearLayout layout =
-                new LinearLayout(this);
-
-            layout.Orientation =
-                Orientation.Vertical;
-
-            layout.SetPadding(
-                40,
-                40,
-                40,
-                40
-            );
-
-
-            TextView title =
-                new TextView(this);
-
-            title.Text =
-                "ASSET DETAIL";
-
-            title.TextSize =
-                24;
-
-
-            layout.AddView(
-                title
-            );
-
-
-            AddText(
-                layout,
-                ""
-            );
-
-
-            AddText(
-                layout,
-                "Asset #" +
-                asset.Number
-            );
-
-
-            AddText(
-                layout,
-                "Type: " +
-                asset.TypeName
-            );
-
-
-            AddText(
-                layout,
-                "TypeID: " +
-                asset.TypeId
-            );
-
-
-            AddText(
-                layout,
-                "PathID: " +
-                asset.PathId
-            );
-
-
-            AddText(
-                layout,
-                "Serialized File: " +
-                asset.FileName
-            );
-
-
-            AddText(
-                layout,
-                ""
-            );
-
-
-            // =================================================
-            // BACK BUTTON
-            // =================================================
-
-            Button backButton =
-                new Button(this);
-
-            backButton.Text =
-                "BACK TO ASSET LIST";
-
-
-            backButton.Click +=
-                delegate
-                {
-                    // Kembali ke file yang sedang dibuka.
-                    // Untuk tahap ini Activity di-recreate
-                    // supaya picker tidak perlu dibuka lagi.
-                    RebuildCurrentBundleView();
-                };
-
-
-            layout.AddView(
-                backButton
-            );
-
-
-            SetContentView(
-                layout
-            );
-        }
-
-
-        // =====================================================
-        // CURRENT BUNDLE VIEW
-        // =====================================================
-
-        private void RebuildCurrentBundleView()
-        {
-            if (assetList.Count == 0)
-            {
-                SetStatus(
-                    "Tidak ada asset."
-                );
-
-                return;
-            }
-
-
-            LinearLayout layout =
-                CreateAssetLayout();
-
-
-            AddText(
-                layout,
-                "UABEA Android"
-            );
-
-
-            AddText(
-                layout,
-                ""
-            );
-
-
-            AddText(
-                layout,
-                "=== ASSET LIST ==="
-            );
-
-
-            foreach (
-                AssetInfoData asset
-                in assetList)
-            {
-                AssetInfoData selected =
-                    asset;
-
-
-                Button button =
-                    new Button(this);
-
-
-                button.Text =
-                    asset.Number +
-                    ". " +
-                    asset.TypeName +
-                    "\nTypeID: " +
-                    asset.TypeId;
-
-
-                button.Click +=
-                    delegate
-                    {
-                        ShowAssetDetail(
-                            selected
-                        );
-                    };
-
-
-                layout.AddView(
-                    button
-                );
-            }
-
-
-            SetContentView(
-                layout
-            );
-        }
-
-
-        // =====================================================
-        // STATUS
-        // =====================================================
-
-        private void SetStatus(
-            string message)
-        {
-            if (status == null)
-            {
-                return;
-            }
-
-
-            RunOnUiThread(
-                delegate
-                {
-                    if (status != null)
-                    {
-                        status.Text =
-                            message;
-                    }
-                }
-            );
-        }
-
-
-        // =====================================================
-        // ERROR
-        // =====================================================
-
-        private void ShowError(
-            string title,
-            Exception ex)
-        {
             SetStatus(
-                "❌ " +
-                title +
-                "\n\n" +
-                ex.Message
+                result.ToString()
             );
+        }
 
 
-            System.Diagnostics.Debug.WriteLine(
-                title
-            );
+        // =========================================================
+        // SET STATUS
+        // =========================================================
 
-
-            System.Diagnostics.Debug.WriteLine(
-                ex.ToString()
-            );
+        private void SetStatus(string message)
+        {
+            RunOnUiThread(delegate
+            {
+                if (status != null)
+                {
+                    status.Text = message;
+                }
+            });
         }
     }
 }
