@@ -11,12 +11,16 @@ using System;
 using System.IO;
 using System.Text;
 
-using AndroidUri = global::Android.Net.Uri;
+using ViewStates =
+    global::Android.Views.ViewStates;
+
+using AndroidUri =
+    global::Android.Net.Uri;
 
 namespace UABEAvalonia.Android
 {
     [Activity(
-        Label = "UABEA Android",
+        Label = "Sukma Umbaran",
         MainLauncher = true
     )]
     public class MainActivity : Activity
@@ -29,9 +33,12 @@ namespace UABEAvalonia.Android
         private AssetsManager? assetsManager;
 
 
-        protected override void OnCreate(Bundle? savedInstanceState)
+        protected override void OnCreate(
+            Bundle? savedInstanceState)
         {
-            base.OnCreate(savedInstanceState);
+            base.OnCreate(
+                savedInstanceState
+            );
 
 
             LinearLayout root =
@@ -947,7 +954,7 @@ namespace UABEAvalonia.Android
 
 
             childrenLayout.Visibility =
-                Android.Views.ViewStates.Gone;
+                ViewStates.Gone;
 
 
             if (hasChildren)
@@ -968,10 +975,10 @@ namespace UABEAvalonia.Android
                 {
                     if (
                         childrenLayout.Visibility ==
-                        Android.Views.ViewStates.Gone)
+                        ViewStates.Gone)
                     {
                         childrenLayout.Visibility =
-                            Android.Views.ViewStates.Visible;
+                            ViewStates.Visible;
 
 
                         text.Text =
@@ -982,7 +989,7 @@ namespace UABEAvalonia.Android
                     else
                     {
                         childrenLayout.Visibility =
-                            Android.Views.ViewStates.Gone;
+                            ViewStates.Gone;
 
 
                         text.Text =
@@ -1095,7 +1102,7 @@ namespace UABEAvalonia.Android
 
 
             childrenLayout.Visibility =
-                Android.Views.ViewStates.Gone;
+                ViewStates.Gone;
 
 
             foreach (
@@ -1119,10 +1126,10 @@ namespace UABEAvalonia.Android
             {
                 if (
                     childrenLayout.Visibility ==
-                    Android.Views.ViewStates.Gone)
+                    ViewStates.Gone)
                 {
                     childrenLayout.Visibility =
-                        Android.Views.ViewStates.Visible;
+                        ViewStates.Visible;
 
 
                     text.Text =
@@ -1133,7 +1140,7 @@ namespace UABEAvalonia.Android
                 else
                 {
                     childrenLayout.Visibility =
-                        Android.Views.ViewStates.Gone;
+                        ViewStates.Gone;
 
 
                     text.Text =
