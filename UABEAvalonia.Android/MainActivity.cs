@@ -788,39 +788,7 @@ namespace UABEAvalonia.Android
 
             try
             {
-                StringBuilder result =
-                    new StringBuilder();
-
-
-                result.AppendLine(
-                    "=== ASSET INSPECTOR ==="
-                );
-
-
-                result.AppendLine();
-
-
-                result.AppendLine(
-                    "TypeID: " +
-                    asset.TypeId
-                );
-
-
-                result.AppendLine(
-                    "PathID: " +
-                    asset.PathId
-                );
-
-
-                result.AppendLine();
-
-
-                result.AppendLine(
-                    "=== SERIALIZED FIELDS ==="
-                );
-
-
-                result.AppendLine();
+                ClearAssetList();
 
 
                 AssetTypeValueField baseField =
@@ -832,29 +800,48 @@ namespace UABEAvalonia.Android
 
                 if (baseField == null)
                 {
-                    result.AppendLine(
+                    SetStatus(
                         "BaseField tidak tersedia."
                     );
-
-
-                    SetStatus(
-                        result.ToString()
-                    );
-
 
                     return;
                 }
 
 
-                DumpField(
+                TextView header =
+                    new TextView(this);
+
+
+                header.Text =
+                    "=== ASSET INSPECTOR ===\n\n" +
+                    "TypeID: " +
+                    asset.TypeId +
+                    "\n" +
+                    "PathID: " +
+                    asset.PathId;
+
+
+                header.TextSize =
+                    16;
+
+
+                if (assetList != null)
+                {
+                    assetList.AddView(
+                        header
+                    );
+                }
+
+
+                AddTreeNode(
                     baseField,
-                    "",
-                    result
+                    0
                 );
 
 
                 SetStatus(
-                    result.ToString()
+                    "Asset berhasil dibuka.\n" +
+                    "Tekan ▶ untuk membuka node."
                 );
             }
             catch (Exception ex)
@@ -867,15 +854,21 @@ namespace UABEAvalonia.Android
         }
 
 
-        private void DumpField(
+        private void AddTreeNode(
             AssetTypeValueField field,
-            string indent,
-            StringBuilder result)
+            int depth)
         {
-            if (field == null)
+            if (
+                field == null ||
+                assetList == null)
             {
                 return;
             }
+
+
+            bool hasChildren =
+                field.Children != null &&
+                field.Children.Count > 0;
 
 
             string fieldName =
@@ -884,55 +877,296 @@ namespace UABEAvalonia.Android
 
 
             string value =
-                "";
+                GetFieldValue(
+                    field
+                );
+
+
+            LinearLayout row =
+                new LinearLayout(this);
+
+
+            row.Orientation =
+                Orientation.Vertical;
+
+
+            TextView text =
+                new TextView(this);
+
+
+            text.TextSize =
+                15;
+
+
+            string indent =
+                new string(
+                    ' ',
+                    depth * 4
+                );
+
+
+            if (hasChildren)
+            {
+                text.Text =
+                    indent +
+                    "▶ " +
+                    fieldName;
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(value))
+                {
+                    text.Text =
+                        indent +
+                        "• " +
+                        fieldName +
+                        " = " +
+                        value;
+                }
+                else
+                {
+                    text.Text =
+                        indent +
+                        "• " +
+                        fieldName;
+                }
+            }
+
+
+            row.AddView(
+                text
+            );
+
+
+            LinearLayout childrenLayout =
+                new LinearLayout(this);
+
+
+            childrenLayout.Orientation =
+                Orientation.Vertical;
+
+
+            childrenLayout.Visibility =
+                Android.Views.ViewStates.Gone;
+
+
+            if (hasChildren)
+            {
+                foreach (
+                    AssetTypeValueField child
+                    in field.Children)
+                {
+                    AddTreeNodeToLayout(
+                        childrenLayout,
+                        child,
+                        depth + 1
+                    );
+                }
+
+
+                text.Click += delegate
+                {
+                    if (
+                        childrenLayout.Visibility ==
+                        Android.Views.ViewStates.Gone)
+                    {
+                        childrenLayout.Visibility =
+                            Android.Views.ViewStates.Visible;
+
+
+                        text.Text =
+                            indent +
+                            "▼ " +
+                            fieldName;
+                    }
+                    else
+                    {
+                        childrenLayout.Visibility =
+                            Android.Views.ViewStates.Gone;
+
+
+                        text.Text =
+                            indent +
+                            "▶ " +
+                            fieldName;
+                    }
+                };
+            }
+
+
+            row.AddView(
+                childrenLayout
+            );
+
+
+            assetList.AddView(
+                row
+            );
+        }
+
+
+        private void AddTreeNodeToLayout(
+            LinearLayout parent,
+            AssetTypeValueField field,
+            int depth)
+        {
+            if (field == null)
+            {
+                return;
+            }
+
+
+            bool hasChildren =
+                field.Children != null &&
+                field.Children.Count > 0;
+
+
+            string fieldName =
+                field.FieldName ??
+                "(unnamed)";
+
+
+            string value =
+                GetFieldValue(
+                    field
+                );
+
+
+            TextView text =
+                new TextView(this);
+
+
+            text.TextSize =
+                15;
+
+
+            string indent =
+                new string(
+                    ' ',
+                    depth * 4
+                );
+
+
+            if (hasChildren)
+            {
+                text.Text =
+                    indent +
+                    "▶ " +
+                    fieldName;
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(value))
+                {
+                    text.Text =
+                        indent +
+                        "• " +
+                        fieldName +
+                        " = " +
+                        value;
+                }
+                else
+                {
+                    text.Text =
+                        indent +
+                        "• " +
+                        fieldName;
+                }
+            }
+
+
+            parent.AddView(
+                text
+            );
+
+
+            if (!hasChildren)
+            {
+                return;
+            }
+
+
+            LinearLayout childrenLayout =
+                new LinearLayout(this);
+
+
+            childrenLayout.Orientation =
+                Orientation.Vertical;
+
+
+            childrenLayout.Visibility =
+                Android.Views.ViewStates.Gone;
+
+
+            foreach (
+                AssetTypeValueField child
+                in field.Children)
+            {
+                AddTreeNodeToLayout(
+                    childrenLayout,
+                    child,
+                    depth + 1
+                );
+            }
+
+
+            parent.AddView(
+                childrenLayout
+            );
+
+
+            text.Click += delegate
+            {
+                if (
+                    childrenLayout.Visibility ==
+                    Android.Views.ViewStates.Gone)
+                {
+                    childrenLayout.Visibility =
+                        Android.Views.ViewStates.Visible;
+
+
+                    text.Text =
+                        indent +
+                        "▼ " +
+                        fieldName;
+                }
+                else
+                {
+                    childrenLayout.Visibility =
+                        Android.Views.ViewStates.Gone;
+
+
+                    text.Text =
+                        indent +
+                        "▶ " +
+                        fieldName;
+                }
+            };
+        }
+
+
+        private string GetFieldValue(
+            AssetTypeValueField field)
+        {
+            if (field == null)
+            {
+                return "";
+            }
 
 
             try
             {
                 if (field.Value != null)
                 {
-                    value =
-                        field.Value.AsString;
+                    return field.Value.AsString;
                 }
             }
             catch
             {
-                value =
-                    "";
             }
 
 
-            if (!string.IsNullOrEmpty(value))
-            {
-                result.AppendLine(
-                    indent +
-                    fieldName +
-                    " = " +
-                    value
-                );
-            }
-            else
-            {
-                result.AppendLine(
-                    indent +
-                    fieldName
-                );
-            }
-
-
-            if (field.Children != null)
-            {
-                foreach (
-                    AssetTypeValueField child
-                    in field.Children)
-                {
-                    DumpField(
-                        child,
-                        indent + "  ",
-                        result
-                    );
-                }
-            }
+            return "";
         }
 
 
