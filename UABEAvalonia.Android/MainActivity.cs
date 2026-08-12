@@ -20,7 +20,7 @@ using AndroidUri =
 namespace UABEAvalonia.Android
 {
     [Activity(
-        Label = "Sukma Umbaran",
+        Label = "UABEA Android",
         MainLauncher = true
     )]
     public class MainActivity : Activity
@@ -549,9 +549,7 @@ namespace UABEAvalonia.Android
                             "   Tidak dapat dimuat."
                         );
 
-
                         result.AppendLine();
-
 
                         continue;
                     }
@@ -602,9 +600,17 @@ namespace UABEAvalonia.Android
                         assetNumber++;
 
 
+                        string typeName =
+                            GetAssetTypeName(
+                                asset.TypeId
+                            );
+
+
                         result.AppendLine(
                             assetNumber +
-                            ". TypeID: " +
+                            ". " +
+                            typeName +
+                            " | TypeID: " +
                             asset.TypeId +
                             " | PathID: " +
                             asset.PathId
@@ -731,9 +737,17 @@ namespace UABEAvalonia.Android
                         asset;
 
 
+                    string typeName =
+                        GetAssetTypeName(
+                            currentAsset.TypeId
+                        );
+
+
                     result.AppendLine(
                         number +
-                        ". TypeID: " +
+                        ". " +
+                        typeName +
+                        " | TypeID: " +
                         currentAsset.TypeId +
                         " | PathID: " +
                         currentAsset.PathId
@@ -745,9 +759,11 @@ namespace UABEAvalonia.Android
 
 
                     assetButton.Text =
-                        "Asset #" +
+                        "ASSET #" +
                         number +
-                        " | TypeID " +
+                        " | " +
+                        typeName +
+                        "\nTypeID: " +
                         currentAsset.TypeId;
 
 
@@ -783,6 +799,37 @@ namespace UABEAvalonia.Android
         }
 
 
+        private string GetAssetTypeName(
+            int typeId)
+        {
+            try
+            {
+                AssetClassID classId =
+                    (AssetClassID)typeId;
+
+
+                string name =
+                    classId.ToString();
+
+
+                if (
+                    !string.IsNullOrWhiteSpace(
+                        name) &&
+                    name !=
+                    typeId.ToString())
+                {
+                    return name;
+                }
+            }
+            catch
+            {
+            }
+
+
+            return "Unknown";
+        }
+
+
         private void LoadAssetInspector(
             AssetsFileInstance assetsFile,
             AssetFileInfo asset)
@@ -796,6 +843,12 @@ namespace UABEAvalonia.Android
             try
             {
                 ClearAssetList();
+
+
+                string typeName =
+                    GetAssetTypeName(
+                        asset.TypeId
+                    );
 
 
                 AssetTypeValueField baseField =
@@ -821,6 +874,9 @@ namespace UABEAvalonia.Android
 
                 header.Text =
                     "=== ASSET INSPECTOR ===\n\n" +
+                    "Type: " +
+                    typeName +
+                    "\n" +
                     "TypeID: " +
                     asset.TypeId +
                     "\n" +
@@ -848,6 +904,9 @@ namespace UABEAvalonia.Android
 
                 SetStatus(
                     "Asset berhasil dibuka.\n" +
+                    "Type: " +
+                    typeName +
+                    "\n\n" +
                     "Tekan ▶ untuk membuka node."
                 );
             }
