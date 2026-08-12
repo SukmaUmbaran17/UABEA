@@ -32,6 +32,14 @@ namespace UABEAvalonia.Android
 
         private AssetsManager? assetsManager;
 
+        private BundleFileInstance? currentBundle;
+        private AssetsFileInstance? currentAssetsFile;
+
+        private int currentSerializedIndex = -1;
+
+        private bool showingAssetList = false;
+        private bool showingInspector = false;
+
 
         protected override void OnCreate(
             Bundle? savedInstanceState)
@@ -41,6 +49,32 @@ namespace UABEAvalonia.Android
             );
 
 
+            BuildMainInterface();
+
+
+            try
+            {
+                assetsManager =
+                    new AssetsManager();
+
+
+                SetStatus(
+                    "AssetsTools.NET siap.\n\n" +
+                    "Tekan OPEN UNITY3D."
+                );
+            }
+            catch (Exception ex)
+            {
+                SetStatus(
+                    "AssetsTools.NET gagal dimuat.\n\n" +
+                    ex.Message
+                );
+            }
+        }
+
+
+        private void BuildMainInterface()
+        {
             LinearLayout root =
                 new LinearLayout(this);
 
@@ -135,26 +169,6 @@ namespace UABEAvalonia.Android
             {
                 OpenFilePicker();
             };
-
-
-            try
-            {
-                assetsManager =
-                    new AssetsManager();
-
-
-                SetStatus(
-                    "AssetsTools.NET siap.\n\n" +
-                    "Tekan OPEN UNITY3D."
-                );
-            }
-            catch (Exception ex)
-            {
-                SetStatus(
-                    "AssetsTools.NET gagal dimuat.\n\n" +
-                    ex.Message
-                );
-            }
         }
 
 
@@ -416,6 +430,10 @@ namespace UABEAvalonia.Android
             }
 
 
+            currentBundle =
+                bundle;
+
+
             var directories =
                 bundle.file
                     .BlockAndDirInfo
@@ -633,6 +651,13 @@ namespace UABEAvalonia.Android
             }
 
 
+            showingAssetList =
+                false;
+
+            showingInspector =
+                false;
+
+
             SetStatus(
                 result.ToString()
             );
@@ -669,124 +694,24 @@ namespace UABEAvalonia.Android
                 }
 
 
-                StringBuilder result =
-                    new StringBuilder();
+                currentBundle =
+                    bundle;
+
+                currentAssetsFile =
+                    assetsFile;
+
+                currentSerializedIndex =
+                    index;
+
+                showingAssetList =
+                    true;
+
+                showingInspector =
+                    false;
 
 
-                result.AppendLine(
-                    "=== SERIALIZED FILE ==="
-                );
-
-
-                result.AppendLine();
-
-
-                result.AppendLine(
-                    "Unity Version: " +
+                ShowAssetList(
                     assetsFile
-                        .file
-                        .Metadata
-                        .UnityVersion
-                );
-
-
-                int count =
-                    0;
-
-
-                foreach (
-                    var asset
-                    in assetsFile.file.AssetInfos)
-                {
-                    count++;
-                }
-
-
-                result.AppendLine(
-                    "Asset Count: " +
-                    count
-                );
-
-
-                result.AppendLine();
-
-
-                result.AppendLine(
-                    "=== ASSET LIST ==="
-                );
-
-
-                result.AppendLine();
-
-
-                int number =
-                    0;
-
-
-                ClearAssetList();
-
-
-                foreach (
-                    var asset
-                    in assetsFile.file.AssetInfos)
-                {
-                    number++;
-
-
-                    AssetFileInfo currentAsset =
-                        asset;
-
-
-                    string typeName =
-                        GetAssetTypeName(
-                            currentAsset.TypeId
-                        );
-
-
-                    result.AppendLine(
-                        number +
-                        ". " +
-                        typeName +
-                        " | TypeID: " +
-                        currentAsset.TypeId +
-                        " | PathID: " +
-                        currentAsset.PathId
-                    );
-
-
-                    Button assetButton =
-                        new Button(this);
-
-
-                    assetButton.Text =
-                        "ASSET #" +
-                        number +
-                        " | " +
-                        typeName +
-                        "\nTypeID: " +
-                        currentAsset.TypeId;
-
-
-                    assetButton.Click += delegate
-                    {
-                        LoadAssetInspector(
-                            assetsFile,
-                            currentAsset
-                        );
-                    };
-
-
-                    if (assetList != null)
-                    {
-                        assetList.AddView(
-                            assetButton
-                        );
-                    }
-                }
-
-
-                SetStatus(
-                    result.ToString()
                 );
             }
             catch (Exception ex)
@@ -796,6 +721,143 @@ namespace UABEAvalonia.Android
                     ex.Message
                 );
             }
+        }
+
+
+        private void ShowAssetList(
+            AssetsFileInstance assetsFile)
+        {
+            StringBuilder result =
+                new StringBuilder();
+
+
+            result.AppendLine(
+                "=== ASSET LIST ==="
+            );
+
+
+            result.AppendLine();
+
+
+            result.AppendLine(
+                "Unity Version: " +
+                assetsFile
+                    .file
+                    .Metadata
+                    .UnityVersion
+            );
+
+
+            int count =
+                0;
+
+
+            foreach (
+                var asset
+                in assetsFile.file.AssetInfos)
+            {
+                count++;
+            }
+
+
+            result.AppendLine(
+                "Asset Count: " +
+                count
+            );
+
+
+            result.AppendLine();
+
+
+            result.AppendLine(
+                "Pilih asset:"
+            );
+
+
+            result.AppendLine();
+
+
+            ClearAssetList();
+
+
+            int number =
+                0;
+
+
+            foreach (
+                var asset
+                in assetsFile.file.AssetInfos)
+            {
+                number++;
+
+
+                AssetFileInfo currentAsset =
+                    asset;
+
+
+                string typeName =
+                    GetAssetTypeName(
+                        currentAsset.TypeId
+                    );
+
+
+                result.AppendLine(
+                    "ASSET #" +
+                    number +
+                    " | " +
+                    typeName
+                );
+
+
+                result.AppendLine(
+                    "TypeID: " +
+                    currentAsset.TypeId
+                );
+
+
+                result.AppendLine(
+                    "PathID: " +
+                    currentAsset.PathId
+                );
+
+
+                result.AppendLine();
+
+
+                Button assetButton =
+                    new Button(this);
+
+
+                assetButton.Text =
+                    "ASSET #" +
+                    number +
+                    " | " +
+                    typeName +
+                    "\nTypeID: " +
+                    currentAsset.TypeId;
+
+
+                assetButton.Click += delegate
+                {
+                    LoadAssetInspector(
+                        assetsFile,
+                        currentAsset
+                    );
+                };
+
+
+                if (assetList != null)
+                {
+                    assetList.AddView(
+                        assetButton
+                    );
+                }
+            }
+
+
+            SetStatus(
+                result.ToString()
+            );
         }
 
 
@@ -851,6 +913,9 @@ namespace UABEAvalonia.Android
                     );
 
 
+                AddBackButton();
+
+
                 AssetTypeValueField baseField =
                     assetsManager.GetBaseField(
                         assetsFile,
@@ -902,6 +967,13 @@ namespace UABEAvalonia.Android
                 );
 
 
+                showingAssetList =
+                    true;
+
+                showingInspector =
+                    true;
+
+
                 SetStatus(
                     "Asset berhasil dibuka.\n" +
                     "Type: " +
@@ -917,6 +989,168 @@ namespace UABEAvalonia.Android
                     ex.Message
                 );
             }
+        }
+
+
+        private void AddBackButton()
+        {
+            Button backButton =
+                new Button(this);
+
+
+            backButton.Text =
+                "← KEMBALI KE ASSET LIST";
+
+
+            backButton.Click += delegate
+            {
+                ReturnToAssetList();
+            };
+
+
+            if (assetList != null)
+            {
+                assetList.AddView(
+                    backButton
+                );
+            }
+        }
+
+
+        private void ReturnToAssetList()
+        {
+            if (
+                currentAssetsFile == null)
+            {
+                return;
+            }
+
+
+            showingInspector =
+                false;
+
+
+            showingAssetList =
+                true;
+
+
+            ShowAssetList(
+                currentAssetsFile
+            );
+        }
+
+
+        public override void OnBackPressed()
+        {
+            if (showingInspector)
+            {
+                ReturnToAssetList();
+
+                return;
+            }
+
+
+            if (
+                showingAssetList &&
+                currentBundle != null)
+            {
+                showingAssetList =
+                    false;
+
+                showingInspector =
+                    false;
+
+                ShowSerializedFiles();
+
+                return;
+            }
+
+
+            base.OnBackPressed();
+        }
+
+
+        private void ShowSerializedFiles()
+        {
+            if (currentBundle == null)
+            {
+                return;
+            }
+
+
+            ClearAssetList();
+
+
+            StringBuilder result =
+                new StringBuilder();
+
+
+            result.AppendLine(
+                "=== SERIALIZED FILE ==="
+            );
+
+
+            result.AppendLine();
+
+
+            int number =
+                0;
+
+
+            foreach (
+                var directory
+                in currentBundle
+                    .file
+                    .BlockAndDirInfo
+                    .DirectoryInfos)
+            {
+                int currentIndex =
+                    number;
+
+
+                number++;
+
+
+                string currentName =
+                    directory.Name;
+
+
+                Button button =
+                    new Button(this);
+
+
+                button.Text =
+                    currentName;
+
+
+                button.Click += delegate
+                {
+                    LoadSerializedFile(
+                        currentBundle,
+                        currentIndex
+                    );
+                };
+
+
+                if (assetList != null)
+                {
+                    assetList.AddView(
+                        button
+                    );
+                }
+
+
+                result.AppendLine(
+                    (number) +
+                    ". " +
+                    currentName
+                );
+            }
+
+
+            SetStatus(
+                result.ToString()
+            );
         }
 
 
