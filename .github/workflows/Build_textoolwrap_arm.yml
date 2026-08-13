@@ -104,6 +104,25 @@ jobs:
               -o -name "Makefile" \
             \) \
             -print | sort
+      - name: Inspect TexToolWrap Sources
+        shell: bash
+        run: |
+          echo "======================================"
+          echo "TEXTOOLWRAP SOURCE FILES"
+          echo "======================================"
+
+          find ./TexToolWrap \
+            -type f \
+            \( \
+              -name "*.cpp" \
+              -o -name "*.cc" \
+              -o -name "*.c" \
+              -o -name "*.hpp" \
+              -o -name "*.h" \
+              -o -name "CMakeLists.txt" \
+              -o -name "Makefile" \
+            \) \
+            -print | sort
 
       # ==========================================
       # SHOW REPOSITORY STRUCTURE
