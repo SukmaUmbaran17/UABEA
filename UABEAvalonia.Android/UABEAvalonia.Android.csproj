@@ -22,6 +22,10 @@
       Include="Avalonia.Android"
       Version="11.0.10" />
 
+    <PackageReference
+      Include="AssetRipper.TextureDecoder"
+      Version="1.2.0" />
+
     <ProjectReference
       Include="..\UABEA.Core\UABEA.Core.csproj" />
 
