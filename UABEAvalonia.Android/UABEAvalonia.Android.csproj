@@ -11,6 +11,9 @@
     <ApplicationId>com.sukma.uabea.android</ApplicationId>
     <ApplicationVersion>1</ApplicationVersion>
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+
+    <!-- Jangan buang assembly yang direferensikan -->
+    <AndroidLinkMode>None</AndroidLinkMode>
   </PropertyGroup>
 
   <ItemGroup>
@@ -24,10 +27,12 @@
 
     <Reference Include="AssetsTools.NET">
       <HintPath>..\Libs\AssetsTools.NET.dll</HintPath>
+      <Private>true</Private>
     </Reference>
 
     <Reference Include="AssetsTools.NET.Texture">
       <HintPath>..\Libs\AssetsTools.NET.Texture.dll</HintPath>
+      <Private>true</Private>
     </Reference>
 
   </ItemGroup>
