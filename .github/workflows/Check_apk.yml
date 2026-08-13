@@ -1,10 +1,13 @@
-name: Check APK Texture DLL
+name: Check apk texture 
 
 on:
+  push:
+    branches:
+    
   workflow_dispatch:
 
 jobs:
-  check-apk:
+  inspect:
     runs-on: windows-latest
 
     steps:
