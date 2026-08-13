@@ -1,6 +1,9 @@
-name: Build TexToolWrap Android ARM64
+name: build textoolwrap arm
 
 on:
+  push:
+    branches:
+    
   workflow_dispatch:
 
 jobs:
