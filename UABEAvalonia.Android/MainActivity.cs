@@ -996,12 +996,19 @@ private void ViewTexture(
         // --------------------------------------------------------
 
         byte[] bgra =
-            TextureFile.DecodeManaged(
-                encodedData,
-                format,
-                tex.m_Width,
-                tex.m_Height,
-                true);
+    TextureFile.DecodeManaged(
+        encodedData,
+        format,
+        tex.m_Width,
+        tex.m_Height,
+        true);
+
+SetStatus(
+    "DECODE TEST\n" +
+    "Format: " + format + "\n" +
+    "Size: " + tex.m_Width + "x" + tex.m_Height + "\n" +
+    "Compressed: " + encodedData.Length + " bytes\n" +
+    "Decoded: " + (bgra?.Length ?? 0) + " bytes");
 
         if (bgra == null ||
             bgra.Length == 0)
