@@ -865,105 +865,357 @@ namespace UABEAvalonia.Android
         // TEXTURE VIEWER
         // ============================================================
 
-        private void ViewTexture(
-            AssetsFileInstance assetsFile,
-            AssetFileInfo asset)
+        // ============================================================
+// TEXTURE VIEWER
+// ============================================================
+
+private void ViewTexture(
+    AssetsFileInstance assetsFile,
+    AssetFileInfo asset)
+{
+    if (assetsManager == null)
+        return;
+
+    try
+    {
+        ShowTextureMessage(
+            "TEXTURE VIEWER",
+            "Membaca Texture2D...\n\n" +
+            "TypeID: " + asset.TypeId +
+            "\nPathID: " + asset.PathId);
+
+        // --------------------------------------------------------
+        // GET BASE FIELD
+        // --------------------------------------------------------
+
+        AssetTypeValueField baseField =
+            assetsManager.GetBaseField(
+                assetsFile,
+                asset);
+
+        if (baseField == null)
         {
-            if (assetsManager == null ||
-                assetList == null)
-            {
-                return;
-            }
-
-            try
-            {
-                SetStatus(
-                    "Membaca Texture2D...");
-
-                AssetTypeValueField baseField =
-                    assetsManager.GetBaseField(
-                        assetsFile,
-                        asset);
-
-                if (baseField == null)
-                {
-                    throw new Exception(
-                        "Texture field tidak dapat dibaca.");
-                }
-
-                TextureFile tex =
-                    TextureFile.ReadTextureFile(
-                        baseField);
-
-                if (tex.m_Width <= 0 ||
-                    tex.m_Height <= 0)
-                {
-                    throw new Exception(
-                        "Texture berukuran 0x0.");
-                }
-
-                SetStatus(
-                    "Membaca data texture...");
-
-                byte[] encodedData =
-                    tex.GetTextureData(
-                        assetsFile);
-
-                if (encodedData == null ||
-                    encodedData.Length == 0)
-                {
-                    throw new Exception(
-                        "Data Texture2D kosong.\n\n" +
-                        "Jika texture menggunakan .resS, " +
-                        "periksa apakah file resource tersedia.");
-                }
-
-                TextureFormat format =
-                    (TextureFormat)
-                    tex.m_TextureFormat;
-
-                SetStatus(
-    "Texture info:\n\n" +
-    "Format: " + format + "\n" +
-    "Size: " + tex.m_Width + " x " + tex.m_Height + "\n" +
-    "MipCount: " + tex.m_MipCount + "\n" +
-    "Encoded data: " + encodedData.Length + " bytes\n\n" +
-    "Decode...");
-
-                byte[] bgra =
-                    TextureFile.DecodeManaged(
-                        encodedData,
-                        format,
-                        tex.m_Width,
-                        tex.m_Height,
-                        true);
-
-                if (bgra == null ||
-                    bgra.Length == 0)
-                {
-                    throw new Exception(
-                        "Texture gagal didecode.");
-                }
-
-                Bitmap bitmap =
-                    CreateBitmapFromBgra(
-                        bgra,
-                        tex.m_Width,
-                        tex.m_Height);
-
-                ShowTexturePreview(
-                    bitmap,
-                    tex.m_Width,
-                    tex.m_Height,
-                    format);
-            }
-            catch (Exception ex)
-            {
-                SetStatus(
-                    "Texture Viewer gagal.\n\n" +
-                    ex.Message);
-            }
+            throw new Exception(
+                "GetBaseField() mengembalikan NULL.");
         }
+
+        ShowTextureMessage(
+            "TEXTURE VIEWER",
+            "GetBaseField berhasil.\n\n" +
+            "Membaca TextureFile...");
+
+        // --------------------------------------------------------
+        // READ TEXTURE FILE
+        // --------------------------------------------------------
+
+        TextureFile tex =
+            TextureFile.ReadTextureFile(
+                baseField);
+
+        if (tex == null)
+        {
+            throw new Exception(
+                "TextureFile.ReadTextureFile() " +
+                "mengembalikan NULL.");
+        }
+
+        if (tex.m_Width <= 0 ||
+            tex.m_Height <= 0)
+        {
+            throw new Exception(
+                "Ukuran texture tidak valid.\n\n" +
+                "Width: " +
+                tex.m_Width +
+                "\nHeight: " +
+                tex.m_Height);
+        }
+
+        TextureFormat format =
+            (TextureFormat)
+            tex.m_TextureFormat;
+
+        // --------------------------------------------------------
+        // TEXTURE INFORMATION
+        // --------------------------------------------------------
+
+        ShowTextureMessage(
+            "TEXTURE INFO",
+            "TextureFile berhasil dibaca!\n\n" +
+            "Width: " +
+            tex.m_Width +
+            "\nHeight: " +
+            tex.m_Height +
+            "\nFormat: " +
+            format +
+            "\nTextureFormat ID: " +
+            tex.m_TextureFormat +
+            "\nMipCount: " +
+            tex.m_MipCount +
+            "\n\nMengambil texture data...");
+
+        // --------------------------------------------------------
+        // GET TEXTURE DATA
+        // --------------------------------------------------------
+
+        byte[] encodedData =
+            tex.GetTextureData(
+                assetsFile);
+
+        if (encodedData == null ||
+            encodedData.Length == 0)
+        {
+            throw new Exception(
+                "GetTextureData() menghasilkan " +
+                "data kosong.\n\n" +
+                "Kemungkinan texture menggunakan " +
+                "resource eksternal (.resS), " +
+                "atau format texture belum didukung.");
+        }
+
+        // --------------------------------------------------------
+        // SHOW DATA INFORMATION
+        // --------------------------------------------------------
+
+        ShowTextureMessage(
+            "TEXTURE DATA",
+            "Data texture berhasil diambil!\n\n" +
+            "Width: " +
+            tex.m_Width +
+            "\nHeight: " +
+            tex.m_Height +
+            "\nFormat: " +
+            format +
+            "\nMipCount: " +
+            tex.m_MipCount +
+            "\nEncoded bytes: " +
+            encodedData.Length +
+            "\n\nMenjalankan decoder...");
+
+        // --------------------------------------------------------
+        // DECODE
+        // --------------------------------------------------------
+
+        byte[] bgra =
+            TextureFile.DecodeManaged(
+                encodedData,
+                format,
+                tex.m_Width,
+                tex.m_Height,
+                true);
+
+        if (bgra == null ||
+            bgra.Length == 0)
+        {
+            throw new Exception(
+                "DecodeManaged() menghasilkan " +
+                "data kosong.");
+        }
+
+        int expected =
+            tex.m_Width *
+            tex.m_Height *
+            4;
+
+        if (bgra.Length < expected)
+        {
+            throw new Exception(
+                "Ukuran hasil decoder tidak sesuai.\n\n" +
+                "Expected BGRA bytes: " +
+                expected +
+                "\nActual: " +
+                bgra.Length);
+        }
+
+        // --------------------------------------------------------
+        // CREATE ANDROID BITMAP
+        // --------------------------------------------------------
+
+        Bitmap bitmap =
+            CreateBitmapFromBgra(
+                bgra,
+                tex.m_Width,
+                tex.m_Height);
+
+        // --------------------------------------------------------
+        // SHOW PREVIEW
+        // --------------------------------------------------------
+
+        ShowTexturePreview(
+            bitmap,
+            tex.m_Width,
+            tex.m_Height,
+            format);
+    }
+    catch (Exception ex)
+    {
+        ShowTextureError(
+            asset,
+            ex);
+    }
+}
+
+
+// ============================================================
+// TEXTURE DEBUG MESSAGE
+// ============================================================
+
+private void ShowTextureMessage(
+    string title,
+    string message)
+{
+    ClearAssetList();
+
+    if (assetList == null)
+        return;
+
+    TextView header =
+        new TextView(this);
+
+    header.Text =
+        "=== " +
+        title +
+        " ===";
+
+    header.TextSize =
+        20;
+
+    header.SetPadding(
+        10,
+        20,
+        10,
+        20);
+
+    assetList.AddView(
+        header);
+
+    TextView text =
+        new TextView(this);
+
+    text.Text =
+        message;
+
+    text.TextSize =
+        16;
+
+    text.SetPadding(
+        10,
+        20,
+        10,
+        20);
+
+    assetList.AddView(
+        text);
+
+    Button back =
+        new Button(this);
+
+    back.Text =
+        "← KEMBALI KE INSPECTOR";
+
+    back.Click +=
+        delegate
+        {
+            if (currentAssetsFile != null &&
+                currentAsset != null)
+            {
+                OpenAssetInspector(
+                    currentAssetsFile,
+                    currentAsset);
+            }
+        };
+
+    assetList.AddView(
+        back);
+}
+
+
+// ============================================================
+// TEXTURE ERROR SCREEN
+// ============================================================
+
+private void ShowTextureError(
+    AssetFileInfo asset,
+    Exception ex)
+{
+    ClearAssetList();
+
+    if (assetList == null)
+        return;
+
+    TextView title =
+        new TextView(this);
+
+    title.Text =
+        "❌ TEXTURE VIEWER GAGAL";
+
+    title.TextSize =
+        20;
+
+    title.SetPadding(
+        10,
+        20,
+        10,
+        20);
+
+    assetList.AddView(
+        title);
+
+    TextView error =
+        new TextView(this);
+
+    string errorText =
+        "Asset Texture2D\n\n" +
+        "TypeID: " +
+        asset.TypeId +
+        "\nPathID: " +
+        asset.PathId +
+        "\n\n" +
+        "ERROR:\n" +
+        ex.Message +
+        "\n\n" +
+        "DETAIL:\n" +
+        ex.ToString();
+
+    error.Text =
+        errorText;
+
+    error.TextSize =
+        15;
+
+    error.SetPadding(
+        10,
+        20,
+        10,
+        20);
+
+    assetList.AddView(
+        error);
+
+    Button back =
+        new Button(this);
+
+    back.Text =
+        "← KEMBALI KE INSPECTOR";
+
+    back.Click +=
+        delegate
+        {
+            if (currentAssetsFile != null &&
+                currentAsset != null)
+            {
+                OpenAssetInspector(
+                    currentAssetsFile,
+                    currentAsset);
+            }
+        };
+
+    assetList.AddView(
+        back);
+
+    SetStatus(
+        "Texture Viewer gagal. " +
+        "Detail error ditampilkan di layar.");
+}
 
         // ============================================================
         // BGRA -> ANDROID BITMAP
