@@ -12,41 +12,110 @@ jobs:
 
     steps:
 
+      # ==========================================
+      # CHECKOUT
+      # ==========================================
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # ==========================================
+      # ANDROID SDK
+      # ==========================================
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      # ==========================================
+      # ANDROID NDK
+      # ==========================================
       - name: Install Android NDK
         run: |
           sdkmanager "ndk;27.2.12479018"
 
-      - name: Set NDK
-        shell: bash
-        run: |
-          echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
-          echo "NDK=$ANDROID_NDK_HOME"
-
-      - name: Inspect TexToolWrap
+      # ==========================================
+      # SHOW NDK
+      # ==========================================
+      - name: Verify Android NDK
         shell: bash
         run: |
           echo "======================================"
-          echo "PVRTexLib"
+          echo "ANDROID NDK"
           echo "======================================"
-          find UABEA/TexToolWrap/PVRTexLib \
-            -maxdepth 2 -type f | sort
+
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
 
           echo ""
-          echo "======================================"
-          echo "ISPC"
-          echo "======================================"
-          find UABEA/TexToolWrap/ispc \
-            -maxdepth 2 -type f | sort
+
+          find "$ANDROID_HOME/ndk" \
+            -maxdepth 2 \
+            -type d \
+            -print
 
           echo ""
+
+          echo "ARM64 COMPILER:"
+          find "$ANDROID_HOME/ndk/27.2.12479018" \
+            -type f \
+            -name "aarch64-linux-android-clang++" \
+            -print
+
+      # ==========================================
+      # FIND TEXTOOLWRAP
+      # ==========================================
+      - name: Find TexToolWrap
+        shell: bash
+        run: |
           echo "======================================"
-          echo "CRUNCH"
+          echo "SEARCH TexToolWrap"
           echo "======================================"
-          find UABEA/TexToolWrap/crunch \
-            -maxdepth 2 -type f | sort
+
+          find . \
+            -type d \
+            -name "TexToolWrap" \
+            -print
+
+          echo ""
+
+          echo "======================================"
+          echo "SEARCH textoolwrap.cpp"
+          echo "======================================"
+
+          find . \
+            -type f \
+            -name "textoolwrap.cpp" \
+            -print
+
+      # ==========================================
+      # SHOW NATIVE FILES
+      # ==========================================
+      - name: Find Native Libraries
+        shell: bash
+        run: |
+          echo "======================================"
+          echo "SEARCH NATIVE LIBRARIES"
+          echo "======================================"
+
+          find . \
+            -type f \
+            \( \
+              -name "*.so" \
+              -o -name "*.a" \
+              -o -name "CMakeLists.txt" \
+              -o -name "Makefile" \
+            \) \
+            -print | sort
+
+      # ==========================================
+      # SHOW REPOSITORY STRUCTURE
+      # ==========================================
+      - name: Show Repository Structure
+        shell: bash
+        run: |
+          echo "======================================"
+          echo "REPOSITORY STRUCTURE"
+          echo "======================================"
+
+          find . \
+            -maxdepth 4 \
+            -type d \
+            -print | sort | head -300
