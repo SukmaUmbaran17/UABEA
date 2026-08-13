@@ -3,8 +3,7 @@ name: Check Texture DLL
 on:
   push:
     branches:
-      - android-port
-
+    
   workflow_dispatch:
 
 jobs:
