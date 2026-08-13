@@ -1,6 +1,10 @@
 name: Check Texture DLL
 
 on:
+  push:
+    branches:
+      - android-port
+
   workflow_dispatch:
 
 jobs:
@@ -47,6 +51,12 @@ jobs:
         run: |
           dotnet new console -n DllInspector
 
+      - name: Copy DLL files
+        shell: pwsh
+        run: |
+          Copy-Item "Libs/AssetsTools.NET.Texture.dll" "DllInspector/"
+          Copy-Item "Libs/AssetsTools.NET.dll" "DllInspector/"
+
       - name: Create inspector code
         shell: pwsh
         run: |
@@ -54,16 +64,13 @@ jobs:
           using System.Reflection;
 
           string dllPath = Path.GetFullPath(
-              Path.Combine(
-                  "..",
-                  "Libs",
-                  "AssetsTools.NET.Texture.dll"
-              )
+              "AssetsTools.NET.Texture.dll"
           );
 
           Console.WriteLine("======================================");
           Console.WriteLine("ASSEMBLY");
           Console.WriteLine("======================================");
+
           Console.WriteLine(dllPath);
 
           Assembly assembly = Assembly.LoadFrom(dllPath);
