@@ -1,19 +1,20 @@
-name: Check apk texture 
+name: Check APK Texture
 
 on:
   push:
     branches:
-    
+      - android-port
+
   workflow_dispatch:
 
 jobs:
-  inspect:
+  check-apk:
     runs-on: windows-latest
 
     steps:
 
       # ==========================================
-      # 1. CHECKOUT REPOSITORY
+      # 1. CHECKOUT
       # ==========================================
       - name: Checkout
         uses: actions/checkout@v4
@@ -22,7 +23,7 @@ jobs:
       # ==========================================
       # 2. SETUP .NET
       # ==========================================
-      - name: Setup .NET
+      - name: Setup .NET 8
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
@@ -43,7 +44,8 @@ jobs:
       - name: Restore Android project
         shell: pwsh
         run: |
-          dotnet restore UABEAvalonia.Android/UABEAvalonia.Android.csproj
+          dotnet restore `
+            UABEAvalonia.Android/UABEAvalonia.Android.csproj
 
 
       # ==========================================
@@ -62,6 +64,7 @@ jobs:
       # 6. FIND APK
       # ==========================================
       - name: Find APK
+        id: find-apk
         shell: pwsh
         run: |
 
@@ -69,29 +72,34 @@ jobs:
           Write-Host "SEARCHING APK"
           Write-Host "======================================"
 
-          $apks = Get-ChildItem `
-            -Path . `
-            -Filter *.apk `
+          $apk = Get-ChildItem `
+            -Path "UABEAvalonia.Android/bin/Release" `
+            -Filter "*.apk" `
             -Recurse `
-            -ErrorAction SilentlyContinue
+            -ErrorAction SilentlyContinue |
+            Select-Object -First 1
 
-          if ($apks.Count -eq 0) {
+          if ($null -eq $apk) {
+
             Write-Error "APK tidak ditemukan!"
             exit 1
+
           }
 
-          foreach ($apk in $apks) {
+          Write-Host ""
+          Write-Host "APK ditemukan:"
+          Write-Host $apk.FullName
 
-            Write-Host ""
-            Write-Host "APK:"
-            Write-Host "Name : $($apk.Name)"
-            Write-Host "Size : $($apk.Length) bytes"
-            Write-Host "Path : $($apk.FullName)"
-          }
+          Write-Host ""
+          Write-Host "Size:"
+          Write-Host "$($apk.Length) bytes"
+
+          "APK_PATH=$($apk.FullName)" `
+            >> $env:GITHUB_ENV
 
 
       # ==========================================
-      # 7. INSPECT APK
+      # 7. INSPECT APK CONTENTS
       # ==========================================
       - name: Inspect APK contents
         shell: pwsh
@@ -101,29 +109,15 @@ jobs:
           Write-Host "APK CONTENT INSPECTION"
           Write-Host "======================================"
 
-          $apk = Get-ChildItem `
-            -Path . `
-            -Filter *.apk `
-            -Recurse `
-            -ErrorAction SilentlyContinue |
-            Select-Object -First 1
-
-          if ($null -eq $apk) {
-            Write-Error "APK tidak ditemukan!"
-            exit 1
-          }
-
           Write-Host ""
           Write-Host "Using APK:"
-          Write-Host $apk.FullName
+          Write-Host $env:APK_PATH
 
           # --------------------------------------
-          # Create temporary extraction directory
+          # Prepare extraction directory
           # --------------------------------------
 
-          $extract = Join-Path `
-            $env:RUNNER_TEMP `
-            "apk_extract"
+          $extract = "$env:RUNNER_TEMP\apk_extract"
 
           if (Test-Path $extract) {
             Remove-Item `
@@ -134,20 +128,23 @@ jobs:
 
           New-Item `
             -ItemType Directory `
-            -Path $extract | Out-Null
-
-
-          # --------------------------------------
-          # Extract APK
-          # --------------------------------------
+            -Path $extract `
+            | Out-Null
 
           Write-Host ""
           Write-Host "Extracting APK..."
 
+          # --------------------------------------
+          # APK sebenarnya adalah ZIP
+          # --------------------------------------
+
           Expand-Archive `
-            -Path $apk.FullName `
+            -LiteralPath $env:APK_PATH `
             -DestinationPath $extract `
             -Force
+
+          Write-Host ""
+          Write-Host "APK extraction selesai."
 
 
           # ======================================
@@ -165,31 +162,34 @@ jobs:
             -Recurse `
             -ErrorAction SilentlyContinue
 
-          if ($textureDll.Count -eq 0) {
+          if ($textureDll) {
+
+            Write-Host ""
+            Write-Host "✅ AssetsTools.NET.Texture.dll"
+            Write-Host "   DITEMUKAN DI APK!"
+
+            foreach ($file in $textureDll) {
+
+              Write-Host ""
+              Write-Host "Path:"
+              Write-Host $file.FullName
+
+              Write-Host "Size:"
+              Write-Host "$($file.Length) bytes"
+            }
+
+          }
+          else {
 
             Write-Host ""
             Write-Host "❌ AssetsTools.NET.Texture.dll"
             Write-Host "   TIDAK DITEMUKAN DI APK!"
 
           }
-          else {
-
-            Write-Host ""
-            Write-Host "✅ AssetsTools.NET.Texture.dll"
-            Write-Host "   DITEMUKAN DI APK!"
-
-            foreach ($dll in $textureDll) {
-
-              Write-Host ""
-              Write-Host "Name : $($dll.Name)"
-              Write-Host "Size : $($dll.Length) bytes"
-              Write-Host "Path : $($dll.FullName)"
-            }
-          }
 
 
           # ======================================
-          # SEARCH ALL AssetsTools DLL
+          # SEARCH ALL ASSETSTOOLS DLL
           # ======================================
 
           Write-Host ""
@@ -197,32 +197,38 @@ jobs:
           Write-Host "ALL AssetsTools DLL"
           Write-Host "======================================"
 
-          $assetsDlls = Get-ChildItem `
+          $assetDlls = Get-ChildItem `
             -Path $extract `
-            -Filter "AssetsTools*.dll" `
+            -Filter "*AssetsTools*.dll" `
             -Recurse `
             -ErrorAction SilentlyContinue
 
-          if ($assetsDlls.Count -eq 0) {
+          if ($assetDlls) {
+
+            foreach ($dll in $assetDlls) {
+
+              Write-Host ""
+              Write-Host "DLL:"
+              Write-Host $dll.Name
+
+              Write-Host "Size:"
+              Write-Host "$($dll.Length) bytes"
+
+              Write-Host "Path:"
+              Write-Host $dll.FullName
+            }
+
+          }
+          else {
 
             Write-Host ""
             Write-Host "Tidak ada AssetsTools DLL ditemukan."
 
           }
-          else {
-
-            foreach ($dll in $assetsDlls) {
-
-              Write-Host ""
-              Write-Host "$($dll.Name)"
-              Write-Host "Size: $($dll.Length) bytes"
-              Write-Host "Path: $($dll.FullName)"
-            }
-          }
 
 
           # ======================================
-          # SEARCH lib / assemblies
+          # POSSIBLE .NET ASSEMBLY LOCATIONS
           # ======================================
 
           Write-Host ""
@@ -230,32 +236,229 @@ jobs:
           Write-Host "POSSIBLE .NET ASSEMBLY LOCATIONS"
           Write-Host "======================================"
 
-          $interesting = Get-ChildItem `
+          $assemblyFiles = Get-ChildItem `
             -Path $extract `
             -Recurse `
-            -File `
-            -ErrorAction SilentlyContinue |
-            Where-Object {
-              $_.Name -match `
-              "AssetsTools|UABEA|assembl"
+            -Include "*.blob","*.so","*.dat" `
+            -ErrorAction SilentlyContinue
+
+          if ($assemblyFiles) {
+
+            foreach ($file in $assemblyFiles) {
+
+              Write-Host ""
+              Write-Host $file.Name
+              Write-Host "Size: $($file.Length)"
+              Write-Host "Path: $($file.FullName)"
             }
 
-          foreach ($file in $interesting) {
+          }
+          else {
 
-            Write-Host ""
-            Write-Host "$($file.Name)"
-            Write-Host "Size: $($file.Length)"
-            Write-Host "Path: $($file.FullName)"
+            Write-Host "Tidak ditemukan file assembly blob."
+
           }
 
 
       # ==========================================
-      # 8. UPLOAD APK
+      # 8. SEARCH INSIDE ASSEMBLY BLOBS
+      # ==========================================
+      - name: Search Texture DLL inside assembly blobs
+        shell: pwsh
+        run: |
+
+          Write-Host ""
+          Write-Host "======================================"
+          Write-Host "SEARCH INSIDE ASSEMBLY BLOBS"
+          Write-Host "======================================"
+
+          $extract = "$env:RUNNER_TEMP\apk_extract"
+
+          $blobs = Get-ChildItem `
+            -Path $extract `
+            -Filter "*.blob" `
+            -Recurse `
+            -ErrorAction SilentlyContinue
+
+          if ($null -eq $blobs -or $blobs.Count -eq 0) {
+
+            Write-Host ""
+            Write-Host "❌ Tidak ada assembly blob ditemukan."
+
+            exit 0
+          }
+
+
+          foreach ($blob in $blobs) {
+
+            Write-Host ""
+            Write-Host "======================================"
+            Write-Host "CHECKING BLOB"
+            Write-Host "======================================"
+
+            Write-Host "File:"
+            Write-Host $blob.Name
+
+            Write-Host ""
+            Write-Host "Size:"
+            Write-Host "$($blob.Length) bytes"
+
+            Write-Host ""
+            Write-Host "Path:"
+            Write-Host $blob.FullName
+
+
+            # --------------------------------------
+            # Read binary as bytes
+            # --------------------------------------
+
+            try {
+
+              $bytes = `
+                [System.IO.File]::ReadAllBytes(
+                  $blob.FullName
+                )
+
+            }
+            catch {
+
+              Write-Host ""
+              Write-Host "⚠️ Tidak dapat membaca blob."
+
+              continue
+            }
+
+
+            # --------------------------------------
+            # Search ASCII strings
+            # --------------------------------------
+
+            $asciiText = `
+              [System.Text.Encoding]::ASCII.GetString(
+                $bytes
+              )
+
+
+            # ======================================
+            # SEARCH TEXTURE ASSEMBLY
+            # ======================================
+
+            Write-Host ""
+            Write-Host "Searching:"
+            Write-Host "AssetsTools.NET.Texture"
+
+            if (
+              $asciiText.Contains(
+                "AssetsTools.NET.Texture"
+              )
+            ) {
+
+              Write-Host ""
+              Write-Host "✅ AssetsTools.NET.Texture"
+              Write-Host "   DITEMUKAN DI BLOB!"
+
+            }
+            else {
+
+              Write-Host ""
+              Write-Host "❌ AssetsTools.NET.Texture"
+              Write-Host "   TIDAK DITEMUKAN DI BLOB!"
+
+            }
+
+
+            # ======================================
+            # SEARCH BASE ASSETSTOOLS
+            # ======================================
+
+            Write-Host ""
+            Write-Host "Searching:"
+            Write-Host "AssetsTools.NET"
+
+            if (
+              $asciiText.Contains(
+                "AssetsTools.NET"
+              )
+            ) {
+
+              Write-Host ""
+              Write-Host "✅ AssetsTools.NET"
+              Write-Host "   DITEMUKAN DI BLOB!"
+
+            }
+            else {
+
+              Write-Host ""
+              Write-Host "❌ AssetsTools.NET"
+              Write-Host "   TIDAK DITEMUKAN DI BLOB!"
+
+            }
+
+
+            # ======================================
+            # SEARCH TEXTURE NAMESPACE
+            # ======================================
+
+            Write-Host ""
+            Write-Host "Searching:"
+            Write-Host "TextureFile"
+
+            if (
+              $asciiText.Contains(
+                "TextureFile"
+              )
+            ) {
+
+              Write-Host ""
+              Write-Host "✅ TextureFile"
+              Write-Host "   DITEMUKAN DI BLOB!"
+
+            }
+            else {
+
+              Write-Host ""
+              Write-Host "❌ TextureFile"
+              Write-Host "   TIDAK DITEMUKAN DI BLOB!"
+
+            }
+
+          }
+
+
+      # ==========================================
+      # 9. CHECK APK FILE SIZE
+      # ==========================================
+      - name: APK information
+        shell: pwsh
+        run: |
+
+          Write-Host ""
+          Write-Host "======================================"
+          Write-Host "FINAL APK INFORMATION"
+          Write-Host "======================================"
+
+          $apk = Get-Item $env:APK_PATH
+
+          Write-Host ""
+          Write-Host "Name:"
+          Write-Host $apk.Name
+
+          Write-Host ""
+          Write-Host "Size:"
+          Write-Host "$($apk.Length) bytes"
+
+          Write-Host ""
+          Write-Host "Path:"
+          Write-Host $apk.FullName
+
+
+      # ==========================================
+      # 10. UPLOAD APK
       # ==========================================
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: UABEA-Android-APK-Texture-Check
           path: |
-            **/*.apk
+            UABEAvalonia.Android/bin/Release/**/*.apk
           if-no-files-found: error
