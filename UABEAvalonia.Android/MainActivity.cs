@@ -923,9 +923,12 @@ namespace UABEAvalonia.Android
                     tex.m_TextureFormat;
 
                 SetStatus(
-                    "Decode " +
-                    format +
-                    "...");
+    "Texture info:\n\n" +
+    "Format: " + format + "\n" +
+    "Size: " + tex.m_Width + " x " + tex.m_Height + "\n" +
+    "MipCount: " + tex.m_MipCount + "\n" +
+    "Encoded data: " + encodedData.Length + " bytes\n\n" +
+    "Decode...");
 
                 byte[] bgra =
                     TextureFile.DecodeManaged(
