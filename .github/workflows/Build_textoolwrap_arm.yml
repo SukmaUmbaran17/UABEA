@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build-textoolwrap:
+  inspect-native:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,9 +19,34 @@ jobs:
         uses: android-actions/setup-android@v3
 
       - name: Install Android NDK
-        run: sdkmanager "ndk;27.2.12479018"
+        run: |
+          sdkmanager "ndk;27.2.12479018"
 
-      - name: Show NDK
+      - name: Set NDK
+        shell: bash
         run: |
           echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME"
-          ls "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" | head
+          echo "NDK=$ANDROID_NDK_HOME"
+
+      - name: Inspect TexToolWrap
+        shell: bash
+        run: |
+          echo "======================================"
+          echo "PVRTexLib"
+          echo "======================================"
+          find UABEA/TexToolWrap/PVRTexLib \
+            -maxdepth 2 -type f | sort
+
+          echo ""
+          echo "======================================"
+          echo "ISPC"
+          echo "======================================"
+          find UABEA/TexToolWrap/ispc \
+            -maxdepth 2 -type f | sort
+
+          echo ""
+          echo "======================================"
+          echo "CRUNCH"
+          echo "======================================"
+          find UABEA/TexToolWrap/crunch \
+            -maxdepth 2 -type f | sort
