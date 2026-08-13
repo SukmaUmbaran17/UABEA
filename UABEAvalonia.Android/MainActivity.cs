@@ -928,7 +928,7 @@ namespace UABEAvalonia.Android
                     "...");
 
                 byte[] bgra =
-                    texturefile.DecodeManaged(
+                    TextureFile.DecodeManaged(
                         encodedData,
                         format,
                         tex.m_Width,
@@ -1223,7 +1223,7 @@ namespace UABEAvalonia.Android
                 tex.m_TextureFormat;
 
             byte[] bgra =
-                texturefile.DecodeManaged(
+                TextureFile.DecodeManaged(
                     encodedData,
                     format,
                     tex.m_Width,
