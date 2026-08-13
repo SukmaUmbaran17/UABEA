@@ -1,0 +1,258 @@
+name: Check APK Texture DLL
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check-apk:
+    runs-on: windows-latest
+
+    steps:
+
+      # ==========================================
+      # 1. CHECKOUT REPOSITORY
+      # ==========================================
+      - name: Checkout
+        uses: actions/checkout@v4
+
+
+      # ==========================================
+      # 2. SETUP .NET
+      # ==========================================
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+
+      # ==========================================
+      # 3. INSTALL ANDROID WORKLOAD
+      # ==========================================
+      - name: Install Android workload
+        shell: pwsh
+        run: |
+          dotnet workload install android
+
+
+      # ==========================================
+      # 4. RESTORE ANDROID PROJECT
+      # ==========================================
+      - name: Restore Android project
+        shell: pwsh
+        run: |
+          dotnet restore UABEAvalonia.Android/UABEAvalonia.Android.csproj
+
+
+      # ==========================================
+      # 5. BUILD APK
+      # ==========================================
+      - name: Build Android APK
+        shell: pwsh
+        run: |
+          dotnet build `
+            UABEAvalonia.Android/UABEAvalonia.Android.csproj `
+            -c Release `
+            --no-restore
+
+
+      # ==========================================
+      # 6. FIND APK
+      # ==========================================
+      - name: Find APK
+        shell: pwsh
+        run: |
+
+          Write-Host "======================================"
+          Write-Host "SEARCHING APK"
+          Write-Host "======================================"
+
+          $apks = Get-ChildItem `
+            -Path . `
+            -Filter *.apk `
+            -Recurse `
+            -ErrorAction SilentlyContinue
+
+          if ($apks.Count -eq 0) {
+            Write-Error "APK tidak ditemukan!"
+            exit 1
+          }
+
+          foreach ($apk in $apks) {
+
+            Write-Host ""
+            Write-Host "APK:"
+            Write-Host "Name : $($apk.Name)"
+            Write-Host "Size : $($apk.Length) bytes"
+            Write-Host "Path : $($apk.FullName)"
+          }
+
+
+      # ==========================================
+      # 7. INSPECT APK
+      # ==========================================
+      - name: Inspect APK contents
+        shell: pwsh
+        run: |
+
+          Write-Host "======================================"
+          Write-Host "APK CONTENT INSPECTION"
+          Write-Host "======================================"
+
+          $apk = Get-ChildItem `
+            -Path . `
+            -Filter *.apk `
+            -Recurse `
+            -ErrorAction SilentlyContinue |
+            Select-Object -First 1
+
+          if ($null -eq $apk) {
+            Write-Error "APK tidak ditemukan!"
+            exit 1
+          }
+
+          Write-Host ""
+          Write-Host "Using APK:"
+          Write-Host $apk.FullName
+
+          # --------------------------------------
+          # Create temporary extraction directory
+          # --------------------------------------
+
+          $extract = Join-Path `
+            $env:RUNNER_TEMP `
+            "apk_extract"
+
+          if (Test-Path $extract) {
+            Remove-Item `
+              $extract `
+              -Recurse `
+              -Force
+          }
+
+          New-Item `
+            -ItemType Directory `
+            -Path $extract | Out-Null
+
+
+          # --------------------------------------
+          # Extract APK
+          # --------------------------------------
+
+          Write-Host ""
+          Write-Host "Extracting APK..."
+
+          Expand-Archive `
+            -Path $apk.FullName `
+            -DestinationPath $extract `
+            -Force
+
+
+          # ======================================
+          # SEARCH TEXTURE DLL
+          # ======================================
+
+          Write-Host ""
+          Write-Host "======================================"
+          Write-Host "SEARCH AssetsTools.NET.Texture.dll"
+          Write-Host "======================================"
+
+          $textureDll = Get-ChildItem `
+            -Path $extract `
+            -Filter "AssetsTools.NET.Texture.dll" `
+            -Recurse `
+            -ErrorAction SilentlyContinue
+
+          if ($textureDll.Count -eq 0) {
+
+            Write-Host ""
+            Write-Host "❌ AssetsTools.NET.Texture.dll"
+            Write-Host "   TIDAK DITEMUKAN DI APK!"
+
+          }
+          else {
+
+            Write-Host ""
+            Write-Host "✅ AssetsTools.NET.Texture.dll"
+            Write-Host "   DITEMUKAN DI APK!"
+
+            foreach ($dll in $textureDll) {
+
+              Write-Host ""
+              Write-Host "Name : $($dll.Name)"
+              Write-Host "Size : $($dll.Length) bytes"
+              Write-Host "Path : $($dll.FullName)"
+            }
+          }
+
+
+          # ======================================
+          # SEARCH ALL AssetsTools DLL
+          # ======================================
+
+          Write-Host ""
+          Write-Host "======================================"
+          Write-Host "ALL AssetsTools DLL"
+          Write-Host "======================================"
+
+          $assetsDlls = Get-ChildItem `
+            -Path $extract `
+            -Filter "AssetsTools*.dll" `
+            -Recurse `
+            -ErrorAction SilentlyContinue
+
+          if ($assetsDlls.Count -eq 0) {
+
+            Write-Host ""
+            Write-Host "Tidak ada AssetsTools DLL ditemukan."
+
+          }
+          else {
+
+            foreach ($dll in $assetsDlls) {
+
+              Write-Host ""
+              Write-Host "$($dll.Name)"
+              Write-Host "Size: $($dll.Length) bytes"
+              Write-Host "Path: $($dll.FullName)"
+            }
+          }
+
+
+          # ======================================
+          # SEARCH lib / assemblies
+          # ======================================
+
+          Write-Host ""
+          Write-Host "======================================"
+          Write-Host "POSSIBLE .NET ASSEMBLY LOCATIONS"
+          Write-Host "======================================"
+
+          $interesting = Get-ChildItem `
+            -Path $extract `
+            -Recurse `
+            -File `
+            -ErrorAction SilentlyContinue |
+            Where-Object {
+              $_.Name -match `
+              "AssetsTools|UABEA|assembl"
+            }
+
+          foreach ($file in $interesting) {
+
+            Write-Host ""
+            Write-Host "$($file.Name)"
+            Write-Host "Size: $($file.Length)"
+            Write-Host "Path: $($file.FullName)"
+          }
+
+
+      # ==========================================
+      # 8. UPLOAD APK
+      # ==========================================
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: UABEA-Android-APK-Texture-Check
+          path: |
+            **/*.apk
+          if-no-files-found: error
