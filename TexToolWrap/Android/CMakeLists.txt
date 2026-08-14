@@ -1,319 +1,477 @@
-cmake_minimum_required(VERSION 3.22.1)
-
-project(TexToolWrapAndroid)
+name: Build TexToolWrap Android
 
-set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-# ============================================================
-# ANDROID
-# ============================================================
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "TexToolWrap/**"
+      - ".github/workflows/build-textoolwrap-android.yml"
 
-if(NOT ANDROID)
-    message(FATAL_ERROR "TexToolWrap Android harus dibuild menggunakan Android NDK")
-endif()
+jobs:
 
-message(STATUS "=======================================")
-message(STATUS "TexToolWrap Android")
-message(STATUS "=======================================")
-message(STATUS "ANDROID_ABI       = ${ANDROID_ABI}")
-message(STATUS "ANDROID_PLATFORM  = ${ANDROID_PLATFORM}")
-message(STATUS "ANDROID_NDK       = ${CMAKE_ANDROID_NDK}")
-message(STATUS "=======================================")
+  build-textoolwrap:
 
+    name: Build TexToolWrap Android ARM64
 
-# ============================================================
-# PATH
-# ============================================================
+    runs-on: ubuntu-latest
 
-get_filename_component(TEXTOOLWRAP_ROOT
-    "${CMAKE_CURRENT_SOURCE_DIR}/.."
-    ABSOLUTE
-)
+    steps:
 
-set(PVRTEXLIB_ROOT
-    "${TEXTOOLWRAP_ROOT}/PVRTexLib"
-)
+      # ============================================================
+      # CHECKOUT
+      # ============================================================
 
-set(ISPC_ROOT
-    "${TEXTOOLWRAP_ROOT}/ispc"
-)
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-set(CRUNCH_ROOT
-    "${TEXTOOLWRAP_ROOT}/crunch"
-)
+        with:
+          submodules: recursive
+          fetch-depth: 0
 
-message(STATUS "TexToolWrap root = ${TEXTOOLWRAP_ROOT}")
-message(STATUS "PVRTexLib root   = ${PVRTEXLIB_ROOT}")
-message(STATUS "ISPC root        = ${ISPC_ROOT}")
-message(STATUS "Crunch root      = ${CRUNCH_ROOT}")
-
-
-# ============================================================
-# VERIFY DIRECTORIES
-# ============================================================
-
-if(NOT EXISTS "${TEXTOOLWRAP_ROOT}/textoolwrap.cpp")
-    message(FATAL_ERROR
-        "textoolwrap.cpp tidak ditemukan: ${TEXTOOLWRAP_ROOT}/textoolwrap.cpp"
-    )
-endif()
-
-if(NOT EXISTS "${PVRTEXLIB_ROOT}")
-    message(FATAL_ERROR
-        "PVRTexLib tidak ditemukan: ${PVRTEXLIB_ROOT}"
-    )
-endif()
-
-if(NOT EXISTS "${ISPC_ROOT}")
-    message(WARNING
-        "ISPC tidak ditemukan: ${ISPC_ROOT}"
-    )
-endif()
-
-if(NOT EXISTS "${CRUNCH_ROOT}")
-    message(WARNING
-        "Crunch tidak ditemukan: ${CRUNCH_ROOT}"
-    )
-endif()
 
-
-# ============================================================
-# FIND PVRTEXLIB SOURCE
-# ============================================================
-
-file(GLOB_RECURSE PVRTEXLIB_CPP
-    "${PVRTEXLIB_ROOT}/*.cpp"
-)
-
-file(GLOB_RECURSE PVRTEXLIB_C
-    "${PVRTEXLIB_ROOT}/*.c"
-)
-
-file(GLOB_RECURSE PVRTEXLIB_HEADERS
-    "${PVRTEXLIB_ROOT}/*.h"
-)
+      # ============================================================
+      # ANDROID SDK
+      # ============================================================
 
-list(APPEND PVRTEXLIB_SOURCES
-    ${PVRTEXLIB_CPP}
-    ${PVRTEXLIB_C}
-)
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
 
-# Remove obvious non-source directories/files
-list(FILTER PVRTEXLIB_SOURCES EXCLUDE REGEX "/Android/build/")
-list(FILTER PVRTEXLIB_SOURCES EXCLUDE REGEX "/android/build/")
-list(FILTER PVRTEXLIB_SOURCES EXCLUDE REGEX "/build/")
-list(FILTER PVRTEXLIB_SOURCES EXCLUDE REGEX "/tests?/")
-list(FILTER PVRTEXLIB_SOURCES EXCLUDE REGEX "/test/")
-list(FILTER PVRTEXLIB_SOURCES EXCLUDE REGEX "/examples?/")
-
-
-list(LENGTH PVRTEXLIB_SOURCES PVRTEXLIB_SOURCE_COUNT)
-
-message(STATUS "PVRTexLib source count = ${PVRTEXLIB_SOURCE_COUNT}")
-
 
-# ============================================================
-# PVRTEXLIB TARGET
-# ============================================================
+      # ============================================================
+      # NDK
+      # ============================================================
 
-if(PVRTEXLIB_SOURCE_COUNT GREATER 0)
-
-    message(STATUS "Building PVRTexLib from source")
-
-    add_library(
-        PVRTexLib
-        STATIC
-        ${PVRTEXLIB_SOURCES}
-    )
-
-    target_include_directories(
-        PVRTexLib
-        PUBLIC
-            "${PVRTEXLIB_ROOT}"
-    )
-
-    # Common include directories if present
-    if(EXISTS "${PVRTEXLIB_ROOT}/include")
-        target_include_directories(
-            PVRTexLib
-            PUBLIC
-                "${PVRTEXLIB_ROOT}/include"
-        )
-    endif()
-
-    if(EXISTS "${PVRTEXLIB_ROOT}/src")
-        target_include_directories(
-            PVRTexLib
-            PUBLIC
-                "${PVRTEXLIB_ROOT}/src"
-        )
-    endif()
-
-    target_compile_definitions(
-        PVRTexLib
-        PRIVATE
-            ANDROID
-    )
-
-    set_target_properties(
-        PVRTexLib
-        PROPERTIES
-            POSITION_INDEPENDENT_CODE ON
-    )
-
-else()
-
-    message(FATAL_ERROR
-        "Tidak menemukan source C/C++ PVRTexLib."
-    )
-
-endif()
-
-
-# ============================================================
-# TEXTOOLWRAP SOURCE
-# ============================================================
-
-add_library(
-    textoolwrap
-    SHARED
-        "${TEXTOOLWRAP_ROOT}/textoolwrap.cpp"
-)
-
-
-# ============================================================
-# TEXTOOLWRAP INCLUDE
-# ============================================================
-
-target_include_directories(
-    textoolwrap
-    PRIVATE
-
-        "${TEXTOOLWRAP_ROOT}"
-
-        "${PVRTEXLIB_ROOT}"
-)
-
-if(EXISTS "${PVRTEXLIB_ROOT}/include")
-    target_include_directories(
-        textoolwrap
-        PRIVATE
-            "${PVRTEXLIB_ROOT}/include"
-    )
-endif()
-
-if(EXISTS "${PVRTEXLIB_ROOT}/src")
-    target_include_directories(
-        textoolwrap
-        PRIVATE
-            "${PVRTEXLIB_ROOT}/src"
-    )
-endif()
-
-
-# ============================================================
-# COMPILE DEFINITIONS
-# ============================================================
-
-target_compile_definitions(
-    textoolwrap
-    PRIVATE
-        ANDROID
-)
-
-
-# ============================================================
-# LINK PVRTEXLIB
-# ============================================================
-
-target_link_libraries(
-    textoolwrap
-    PRIVATE
-        PVRTexLib
-)
-
-
-# ============================================================
-# ANDROID SYSTEM LIBRARIES
-# ============================================================
-
-find_library(
-    ANDROID_LOG_LIB
-    log
-)
-
-find_library(
-    ANDROID_DL_LIB
-    dl
-)
-
-find_library(
-    ANDROID_M_LIB
-    m
-)
-
-target_link_libraries(
-    textoolwrap
-    PRIVATE
-        ${ANDROID_LOG_LIB}
-        ${ANDROID_DL_LIB}
-        ${ANDROID_M_LIB}
-)
-
-
-# ============================================================
-# WARNINGS
-# ============================================================
-
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-
-    target_compile_options(
-        PVRTexLib
-        PRIVATE
-            -fPIC
-            -Wno-unused-parameter
-            -Wno-unused-variable
-            -Wno-unused-function
-            -Wno-deprecated-declarations
-    )
-
-    target_compile_options(
-        textoolwrap
-        PRIVATE
-            -fPIC
-            -Wno-unused-parameter
-            -Wno-unused-variable
-            -Wno-unused-function
-            -Wno-deprecated-declarations
-    )
-
-endif()
-
-
-# ============================================================
-# OUTPUT
-# ============================================================
-
-set_target_properties(
-    textoolwrap
-    PROPERTIES
-        OUTPUT_NAME "textoolwrap"
-)
-
-
-# ============================================================
-# BUILD INFORMATION
-# ============================================================
-
-message(STATUS "")
-message(STATUS "=======================================")
-message(STATUS "TEXTOOLWRAP CONFIGURATION COMPLETE")
-message(STATUS "=======================================")
-message(STATUS "Target       : textoolwrap")
-message(STATUS "Architecture : ${ANDROID_ABI}")
-message(STATUS "PVRTexLib    : enabled")
-message(STATUS "Output       : libtextoolwrap.so")
-message(STATUS "=======================================")
+      - name: Install Android NDK
+        shell: bash
+
+        run: |
+
+          echo "======================================="
+          echo "INSTALL ANDROID NDK"
+          echo "======================================="
+
+          sdkmanager --install "platform-tools"
+
+          sdkmanager --install "platforms;android-34"
+
+          sdkmanager --install "build-tools;34.0.0"
+
+          sdkmanager --install "ndk;26.3.11579264"
+
+
+      # ============================================================
+      # CONFIGURE NDK
+      # ============================================================
+
+      - name: Configure NDK
+        shell: bash
+
+        run: |
+
+          NDK_HOME="$ANDROID_SDK_ROOT/ndk/26.3.11579264"
+
+          if [ ! -d "$NDK_HOME" ]; then
+
+            echo "ERROR: Android NDK tidak ditemukan"
+
+            exit 1
+
+          fi
+
+          echo "NDK_HOME=$NDK_HOME" >> "$GITHUB_ENV"
+
+          echo "$NDK_HOME" >> "$GITHUB_PATH"
+
+          echo ""
+
+          "$NDK_HOME/ndk-build" --version
+
+
+      # ============================================================
+      # VERIFY
+      # ============================================================
+
+      - name: Verify TexToolWrap
+        shell: bash
+
+        run: |
+
+          echo "======================================="
+          echo "VERIFY REQUIRED FILES"
+          echo "======================================="
+
+          FAILED=0
+
+
+          check_file() {
+
+            if [ -f "$1" ]; then
+
+              echo "✓ FILE : $1"
+
+            else
+
+              echo "✗ FILE MISSING : $1"
+
+              FAILED=1
+
+            fi
+
+          }
+
+
+          check_dir() {
+
+            if [ -d "$1" ]; then
+
+              echo "✓ DIR  : $1"
+
+            else
+
+              echo "✗ DIR MISSING : $1"
+
+              FAILED=1
+
+            fi
+
+          }
+
+
+          check_file \
+            "TexToolWrap/textoolwrap.cpp"
+
+
+          check_file \
+            "TexToolWrap/Android/CMakeLists.txt"
+
+
+          check_dir \
+            "TexToolWrap/PVRTexLib"
+
+
+          check_dir \
+            "TexToolWrap/ispc"
+
+
+          check_dir \
+            "TexToolWrap/crunch"
+
+
+          echo ""
+
+          echo "======================================="
+          echo "TEXTOOLWRAP TREE"
+          echo "======================================="
+
+          find TexToolWrap \
+            -maxdepth 4 \
+            -print | sort
+
+
+          if [ "$FAILED" -ne 0 ]; then
+
+            echo ""
+
+            echo "VERIFY FAILED"
+
+            exit 1
+
+          fi
+
+
+      # ============================================================
+      # PVRTEXLIB INSPECTION
+      # ============================================================
+
+      - name: Inspect PVRTexLib
+        shell: bash
+
+        run: |
+
+          echo "======================================="
+          echo "PVRTEXLIB INSPECTION"
+          echo "======================================="
+
+          echo ""
+
+          echo "Directories:"
+
+          find TexToolWrap/PVRTexLib \
+            -type d \
+            -print | sort
+
+
+          echo ""
+
+          echo "Files:"
+
+          find TexToolWrap/PVRTexLib \
+            -type f \
+            -print | sort
+
+
+          echo ""
+
+          echo "C/C++:"
+
+          find TexToolWrap/PVRTexLib \
+            -type f \
+            \( \
+              -name "*.cpp" \
+              -o -name "*.cc" \
+              -o -name "*.cxx" \
+              -o -name "*.c" \
+              -o -name "*.h" \
+              -o -name "*.hpp" \
+            \) \
+            -print | sort
+
+
+          echo ""
+
+          echo "Libraries:"
+
+          find TexToolWrap/PVRTexLib \
+            -type f \
+            \( \
+              -name "*.a" \
+              -o -name "*.so" \
+              -o -name "*.lib" \
+              -o -name "*.dll" \
+            \) \
+            -print | sort
+
+
+      # ============================================================
+      # CLEAN BUILD
+      # ============================================================
+
+      - name: Clean build
+        shell: bash
+
+        run: |
+
+          rm -rf \
+            TexToolWrap/Android/build
+
+          mkdir -p \
+            TexToolWrap/Android/build
+
+
+      # ============================================================
+      # CMAKE
+      # ============================================================
+
+      - name: Configure CMake ARM64
+        shell: bash
+
+        run: |
+
+          echo "======================================="
+          echo "CMAKE CONFIGURE ARM64"
+          echo "======================================="
+
+          cd \
+            TexToolWrap/Android/build
+
+
+          cmake .. \
+            -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_TOOLCHAIN_FILE="$NDK_HOME/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-24 \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON
+
+
+      # ============================================================
+      # BUILD
+      # ============================================================
+
+      - name: Build TexToolWrap
+        shell: bash
+
+        run: |
+
+          echo "======================================="
+          echo "BUILD TEXTOOLWRAP"
+          echo "======================================="
+
+          cd \
+            TexToolWrap/Android/build
+
+
+          cmake \
+            --build . \
+            --config Release \
+            --parallel 2 \
+            --verbose
+
+
+      # ============================================================
+      # FIND OUTPUT
+      # ============================================================
+
+      - name: Find generated libraries
+        shell: bash
+
+        run: |
+
+          echo "======================================="
+          echo "GENERATED LIBRARIES"
+          echo "======================================="
+
+
+          find \
+            TexToolWrap/Android/build \
+            -type f \
+            \( \
+              -name "*.so" \
+              -o -name "*.a" \
+            \) \
+            -print | sort
+
+
+      # ============================================================
+      # VERIFY
+      # ============================================================
+
+      - name: Verify libtextoolwrap.so
+        shell: bash
+
+        run: |
+
+          echo "======================================="
+          echo "VERIFY TEXTOOLWRAP LIBRARY"
+          echo "======================================="
+
+
+          LIB="TexToolWrap/Android/build/libtextoolwrap.so"
+
+
+          if [ ! -f "$LIB" ]; then
+
+            echo ""
+            echo "ERROR:"
+            echo "libtextoolwrap.so tidak ditemukan."
+
+            echo ""
+
+            find \
+              TexToolWrap/Android/build \
+              -type f \
+              -name "*.so" \
+              -print
+
+            exit 1
+
+          fi
+
+
+          echo ""
+
+          echo "✓ libtextoolwrap.so BERHASIL"
+
+          ls -lh "$LIB"
+
+
+      # ============================================================
+      # PREPARE APK JNI
+      # ============================================================
+
+      - name: Prepare Android JNI
+        shell: bash
+
+        run: |
+
+          echo "======================================="
+          echo "PREPARE JNI"
+          echo "======================================="
+
+
+          rm -rf output
+
+
+          mkdir -p \
+            output/arm64-v8a
+
+
+          cp \
+            TexToolWrap/Android/build/libtextoolwrap.so \
+            output/arm64-v8a/
+
+
+          echo ""
+
+          find output \
+            -type f \
+            -print
+
+
+      # ============================================================
+      # CHECK ARCH
+      # ============================================================
+
+      - name: Check library architecture
+        shell: bash
+
+        run: |
+
+          echo "======================================="
+          echo "CHECK ELF ARCHITECTURE"
+          echo "======================================="
+
+
+          file \
+            output/arm64-v8a/libtextoolwrap.so
+
+
+      # ============================================================
+      # UPLOAD
+      # ============================================================
+
+      - name: Upload TexToolWrap
+        uses: actions/upload-artifact@v4
+
+        with:
+
+          name: TexToolWrap-Android-arm64-v8a
+
+          path: output/
+
+          if-no-files-found: error
+
+
+      # ============================================================
+      # SUMMARY
+      # ============================================================
+
+      - name: Final summary
+        shell: bash
+
+        run: |
+
+          echo ""
+
+          echo "======================================="
+          echo "TEXTOOLWRAP ANDROID BUILD"
+          echo "======================================="
+
+          echo ""
+
+          echo "ABI:"
+          echo "arm64-v8a"
+
+          echo ""
+
+          echo "Output:"
+          echo "output/arm64-v8a/libtextoolwrap.so"
+
+          echo ""
+
+          echo "Artifact:"
+          echo "TexToolWrap-Android-arm64-v8a"
+
+          echo ""
+
+          echo "======================================="
