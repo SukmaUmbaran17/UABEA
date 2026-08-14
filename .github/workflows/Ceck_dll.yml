@@ -1,13 +1,11 @@
-name: Check Texture DLL
+name: check dll
 
 on:
-  push:
-    branches:
-    
   workflow_dispatch:
 
 jobs:
-  inspect:
+  build-android:
+    name: check dll
     runs-on: windows-latest
 
     steps:
