@@ -1,7 +1,9 @@
-name: Build TexToolWrap Android ARM64
+name: Check APK Texture
 
 on:
-  workflow_dispatch:
+  push:
+    branches:
+      - android-portname:
 
 jobs:
 
