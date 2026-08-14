@@ -1,15 +1,12 @@
-name: gawe textoolwrap
+name: compile textoolwrap
 
 on:
-  push:
-    branches:
-      - android-port
+  workflow_dispatch:
 
 jobs:
-
-  build-textoolwrap:
-
-    runs-on: ubuntu-latest
+  build-android:
+    name: compile textoolwrap
+    runs-on: windows-latest
 
     steps:
 
