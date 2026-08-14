@@ -3,7 +3,7 @@ name: gawe textoolweap
 on:
   push:
     branches:
-      - android-portname:
+      - android-port:
 
 jobs:
 
