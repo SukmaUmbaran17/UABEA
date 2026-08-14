@@ -1,9 +1,9 @@
-name: gawe textoolweap
+name: gawe textoolwrap
 
 on:
   push:
     branches:
-      - android-port:
+      - android-port
 
 jobs:
 
