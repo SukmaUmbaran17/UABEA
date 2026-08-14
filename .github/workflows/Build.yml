@@ -1,14 +1,11 @@
-name: UABEA Android Build
+  name: Build UABEA Android
 
 on:
-  push:
-    branches:
-      - android-port
-
   workflow_dispatch:
 
 jobs:
   build-android:
+    name: Build UABEA Android
     runs-on: windows-latest
 
     steps:
