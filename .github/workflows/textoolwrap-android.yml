@@ -1,0 +1,89 @@
+name: Build TexToolWrap Android ARM64
+
+on:
+  workflow_dispatch:
+
+jobs:
+
+  build-textoolwrap:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android NDK
+        run: |
+          sdkmanager "ndk;27.2.12479018"
+
+      - name: Check TexToolWrap
+        run: |
+          echo "======================================="
+          echo "TEXTOOLWRAP"
+          echo "======================================="
+
+          find TexToolWrap -maxdepth 3 -type f | sort
+
+      - name: Check Android NDK
+        run: |
+          echo "======================================="
+          echo "ANDROID NDK"
+          echo "======================================="
+
+          ls -la "$ANDROID_HOME/ndk/27.2.12479018"
+
+      - name: Prepare Android directories
+        run: |
+          mkdir -p TexToolWrap/PVRTexLib/Android/arm64-v8a
+          mkdir -p TexToolWrap/ispc/Android/arm64-v8a
+          mkdir -p TexToolWrap/crunch/Android/arm64-v8a
+
+      - name: Show source files
+        run: |
+          echo "======================================="
+          echo "PVRTEXLIB"
+          echo "======================================="
+
+          find TexToolWrap/PVRTexLib \
+            -maxdepth 2 -type f | sort
+
+          echo ""
+          echo "======================================="
+          echo "ISPC"
+          echo "======================================="
+
+          find TexToolWrap/ispc \
+            -maxdepth 2 -type f | sort
+
+          echo ""
+          echo "======================================="
+          echo "CRUNCH"
+          echo "======================================="
+
+          find TexToolWrap/crunch \
+            -maxdepth 2 -type f | sort
+
+      - name: Build status
+        run: |
+          echo "======================================="
+          echo "ANDROID NATIVE BUILD PREPARATION"
+          echo "======================================="
+          echo ""
+          echo "ABI: arm64-v8a"
+          echo ""
+          echo "Next:"
+          echo "1. Build PVRTexLib"
+          echo "2. Build ISPC"
+          echo "3. Build Crunch"
+          echo "4. Build TexToolWrap"
