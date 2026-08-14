@@ -1,14 +1,12 @@
-name: build textoolwrap arm
+name: ceking textoolwrap
 
 on:
-  push:
-    branches:
-    
   workflow_dispatch:
 
 jobs:
-  inspect-native:
-    runs-on: ubuntu-latest
+  build-android:
+    name: ceking textoolwrap
+    runs-on: windows-latest
 
     steps:
 
