@@ -1,12 +1,12 @@
-name: compile textoolwrap
+name: Compile TextToolWrap Android
 
 on:
   workflow_dispatch:
 
 jobs:
   build-android:
-    name: compile textoolwrap
-    runs-on: windows-latest
+    name: Compile TextToolWrap Android
+    runs-on: ubuntu-latest
 
     steps:
 
