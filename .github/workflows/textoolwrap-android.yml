@@ -1,40 +1,61 @@
-name: Compile TextToolWrap Android
+name: Build TextToolWrap Android
 
 on:
   workflow_dispatch:
 
 jobs:
-  build-android:
-    name: Compile TextToolWrap Android
+  build-textoolwrap:
+    name: Compile TextToolWrap ARM64
     runs-on: ubuntu-latest
 
     steps:
 
+      # ==========================================
+      # 1. CHECKOUT
+      # ==========================================
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      # ==========================================
+      # 2. SETUP JAVA
+      # ==========================================
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
+      # ==========================================
+      # 3. SETUP ANDROID SDK
+      # ==========================================
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
+      # ==========================================
+      # 4. INSTALL NDK
+      # ==========================================
       - name: Install Android NDK
         run: |
+          sdkmanager "platform-tools"
+          sdkmanager "platforms;android-34"
+          sdkmanager "build-tools;34.0.0"
           sdkmanager "ndk;27.2.12479018"
 
+      # ==========================================
+      # 5. CHECK PROJECT
+      # ==========================================
       - name: Check TexToolWrap
         run: |
           echo "======================================="
-          echo "TEXTOOLWRAP"
+          echo "TEXTOOLWRAP STRUCTURE"
           echo "======================================="
 
           find TexToolWrap -maxdepth 3 -type f | sort
 
-      - name: Check Android NDK
+      # ==========================================
+      # 6. CHECK NDK
+      # ==========================================
+      - name: Check NDK
         run: |
           echo "======================================="
           echo "ANDROID NDK"
@@ -42,47 +63,74 @@ jobs:
 
           ls -la "$ANDROID_HOME/ndk/27.2.12479018"
 
-      - name: Prepare Android directories
+      # ==========================================
+      # 7. PREPARE BUILD DIRECTORY
+      # ==========================================
+      - name: Prepare Android Build
         run: |
-          mkdir -p TexToolWrap/PVRTexLib/Android/arm64-v8a
-          mkdir -p TexToolWrap/ispc/Android/arm64-v8a
-          mkdir -p TexToolWrap/crunch/Android/arm64-v8a
+          mkdir -p TexToolWrap/android/build
+          mkdir -p TexToolWrap/android/output
 
-      - name: Show source files
+      # ==========================================
+      # 8. CONFIGURE CMAKE
+      # ==========================================
+      - name: Configure CMake
+        run: |
+          cd TexToolWrap/android
+
+          cmake -S . -B build \
+            -DCMAKE_TOOLCHAIN_FILE="$ANDROID_HOME/ndk/27.2.12479018/build/cmake/android.toolchain.cmake" \
+            -DANDROID_ABI=arm64-v8a \
+            -DANDROID_PLATFORM=android-24 \
+            -DCMAKE_BUILD_TYPE=Release
+
+      # ==========================================
+      # 9. BUILD TEXTTOOLWRAP
+      # ==========================================
+      - name: Build TextToolWrap
+        run: |
+          cd TexToolWrap/android
+
+          cmake --build build \
+            --config Release \
+            --parallel 2
+
+      # ==========================================
+      # 10. FIND RESULT
+      # ==========================================
+      - name: Find Native Library
         run: |
           echo "======================================="
-          echo "PVRTEXLIB"
+          echo "SEARCH RESULT"
           echo "======================================="
 
-          find TexToolWrap/PVRTexLib \
-            -maxdepth 2 -type f | sort
+          find TexToolWrap/android \
+            -type f \
+            \( -name "*.so" -o -name "*.a" \) \
+            -print
 
-          echo ""
-          echo "======================================="
-          echo "ISPC"
-          echo "======================================="
-
-          find TexToolWrap/ispc \
-            -maxdepth 2 -type f | sort
-
-          echo ""
-          echo "======================================="
-          echo "CRUNCH"
-          echo "======================================="
-
-          find TexToolWrap/crunch \
-            -maxdepth 2 -type f | sort
-
-      - name: Build status
+      # ==========================================
+      # 11. COPY TEXTTOOLWRAP
+      # ==========================================
+      - name: Collect libtextoolwrap.so
         run: |
+          mkdir -p TexToolWrap/Android/arm64-v8a
+
+          find TexToolWrap/android/build \
+            -name "libtextoolwrap.so" \
+            -exec cp {} TexToolWrap/Android/arm64-v8a/ \;
+
           echo "======================================="
-          echo "ANDROID NATIVE BUILD PREPARATION"
+          echo "FINAL LIBRARY"
           echo "======================================="
-          echo ""
-          echo "ABI: arm64-v8a"
-          echo ""
-          echo "Next:"
-          echo "1. Build PVRTexLib"
-          echo "2. Build ISPC"
-          echo "3. Build Crunch"
-          echo "4. Build TexToolWrap"
+
+          ls -lh TexToolWrap/Android/arm64-v8a/
+
+      # ==========================================
+      # 12. UPLOAD ARTIFACT
+      # ==========================================
+      - name: Upload TextToolWrap
+        uses: actions/upload-artifact@v4
+        with:
+          name: TextToolWrap-Android-arm64-v8a
+          path: TexToolWrap/Android/arm64-v8a/libtextoolwrap.so
