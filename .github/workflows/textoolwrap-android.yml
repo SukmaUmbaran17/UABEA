@@ -14,9 +14,6 @@ jobs:
 
     steps:
 
-      # ============================================================
-      # 1. CHECKOUT
-      # ============================================================
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -24,63 +21,36 @@ jobs:
           fetch-depth: 0
 
 
-      # ============================================================
-      # 2. ANDROID SDK
-      # ============================================================
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
 
-      # ============================================================
-      # 3. INSTALL ANDROID NDK
-      # ============================================================
       - name: Install Android NDK
         shell: bash
         run: |
-          echo "======================================="
-          echo "INSTALL ANDROID NDK"
-          echo "======================================="
-
           sdkmanager --install "platform-tools"
           sdkmanager --install "platforms;android-34"
           sdkmanager --install "build-tools;34.0.0"
           sdkmanager --install "ndk;26.3.11579264"
 
-          echo ""
-          echo "Installed packages:"
-          sdkmanager --list_installed | grep -E "ndk|android-34|34.0.0" || true
 
-
-      # ============================================================
-      # 4. CONFIGURE NDK
-      # ============================================================
-      - name: Configure Android NDK
+      - name: Configure NDK
         shell: bash
         run: |
-          echo "======================================="
-          echo "CONFIGURE ANDROID NDK"
-          echo "======================================="
-
           NDK_HOME="$ANDROID_SDK_ROOT/ndk/26.3.11579264"
 
           if [ ! -d "$NDK_HOME" ]; then
-            echo "ERROR: NDK tidak ditemukan:"
-            echo "$NDK_HOME"
+            echo "ERROR: NDK tidak ditemukan"
             exit 1
           fi
-
-          echo "NDK_HOME=$NDK_HOME"
 
           echo "NDK_HOME=$NDK_HOME" >> "$GITHUB_ENV"
           echo "$NDK_HOME" >> "$GITHUB_PATH"
 
-          echo ""
+          echo "NDK:"
           "$NDK_HOME/ndk-build" --version
 
 
-      # ============================================================
-      # 5. VERIFY TEXTOOLWRAP
-      # ============================================================
       - name: Verify TexToolWrap
         shell: bash
         run: |
@@ -108,90 +78,62 @@ jobs:
             fi
           }
 
-          echo ""
-          echo "SOURCE"
           check_file "TexToolWrap/textoolwrap.cpp"
-
-          echo ""
-          echo "ANDROID CMAKE"
           check_file "TexToolWrap/Android/CMakeLists.txt"
 
-          echo ""
-          echo "DEPENDENCIES"
           check_dir "TexToolWrap/PVRTexLib"
           check_dir "TexToolWrap/ispc"
           check_dir "TexToolWrap/crunch"
 
           echo ""
           echo "======================================="
-          echo "ACTUAL TEXTOOLWRAP TREE"
-          echo "======================================="
-
-          find TexToolWrap -maxdepth 4 -print | sort
-
-          echo ""
-          echo "======================================="
-          echo "SEARCH CMAKE FILES"
+          echo "SOURCE TREE"
           echo "======================================="
 
           find TexToolWrap \
+            -maxdepth 4 \
             -type f \
-            -iname "CMakeLists.txt" \
             -print | sort
 
-          echo ""
-
           if [ "$FAILED" -ne 0 ]; then
-            echo "======================================="
-            echo "VERIFY FAILED"
-            echo "======================================="
             exit 1
           fi
 
-          echo "======================================="
-          echo "ALL REQUIRED FILES FOUND"
-          echo "======================================="
 
-
-      # ============================================================
-      # 6. SHOW CMAKE
-      # ============================================================
-      - name: Inspect CMakeLists
+      - name: Inspect PVRTexLib
         shell: bash
         run: |
           echo "======================================="
-          echo "ANDROID CMAKE"
+          echo "PVRTEXLIB"
           echo "======================================="
 
           echo ""
-          cat TexToolWrap/Android/CMakeLists.txt
+          echo "Directories:"
+          find TexToolWrap/PVRTexLib \
+            -maxdepth 3 \
+            -type d \
+            -print | sort
+
+          echo ""
+          echo "C/C++ sources:"
+          find TexToolWrap/PVRTexLib \
+            -type f \
+            \( -name "*.cpp" -o -name "*.c" \) \
+            -print | sort
 
 
-      # ============================================================
-      # 7. CREATE BUILD DIRECTORY
-      # ============================================================
-      - name: Create build directory
+      - name: Clean build
         shell: bash
         run: |
-          echo "======================================="
-          echo "CREATE BUILD DIRECTORY"
-          echo "======================================="
-
           rm -rf TexToolWrap/Android/build
-
           mkdir -p TexToolWrap/Android/build
 
-          ls -la TexToolWrap/Android
 
-
-      # ============================================================
-      # 8. CMAKE CONFIGURE ARM64
-      # ============================================================
       - name: Configure CMake ARM64
         shell: bash
         run: |
           echo "======================================="
-          echo "CMAKE CONFIGURE ARM64"
+          echo "CMAKE CONFIGURE"
           echo "======================================="
 
           cd TexToolWrap/Android/build
@@ -201,17 +143,13 @@ jobs:
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_TOOLCHAIN_FILE="$NDK_HOME/build/cmake/android.toolchain.cmake" \
             -DANDROID_ABI=arm64-v8a \
-            -DANDROID_PLATFORM=android-24
+            -DANDROID_PLATFORM=android-24 \
+            -DCMAKE_POSITION_INDEPENDENT_CODE=ON
 
           echo ""
-          echo "======================================="
           echo "CMAKE CONFIGURE SUCCESS"
-          echo "======================================="
 
 
-      # ============================================================
-      # 9. BUILD
-      # ============================================================
       - name: Build TexToolWrap
         shell: bash
         run: |
@@ -223,114 +161,92 @@ jobs:
 
           cmake --build . \
             --config Release \
-            --parallel 2
-
-          echo ""
-          echo "======================================="
-          echo "BUILD FINISHED"
-          echo "======================================="
+            --parallel 2 \
+            --verbose
 
 
-      # ============================================================
-      # 10. FIND SO
-      # ============================================================
-      - name: Find native libraries
+      - name: Find libraries
         shell: bash
         run: |
           echo "======================================="
-          echo "SEARCH GENERATED .SO"
+          echo "GENERATED LIBRARIES"
           echo "======================================="
 
-          echo ""
           find TexToolWrap/Android/build \
             -type f \
             -name "*.so" \
             -print | sort || true
 
           echo ""
-          echo "All generated files:"
+          echo "Static libraries:"
           find TexToolWrap/Android/build \
-            -maxdepth 6 \
             -type f \
+            -name "*.a" \
             -print | sort || true
 
 
-      # ============================================================
-      # 11. VERIFY SO
-      # ============================================================
-      - name: Verify native library
+      - name: Verify TexToolWrap library
         shell: bash
         run: |
           echo "======================================="
-          echo "VERIFY NATIVE LIBRARY"
+          echo "VERIFY TEXTOOLWRAP"
           echo "======================================="
 
-          SO_FILES=$(find TexToolWrap/Android/build \
-            -type f \
-            -name "*.so" \
-            -print)
+          LIB="TexToolWrap/Android/build/libtextoolwrap.so"
 
-          if [ -z "$SO_FILES" ]; then
-            echo ""
+          if [ ! -f "$LIB" ]; then
             echo "ERROR:"
-            echo "Tidak ada file .so yang dihasilkan."
+            echo "libtextoolwrap.so tidak ditemukan."
+
             echo ""
-            echo "CMake berhasil dijalankan tetapi target"
-            echo "shared library belum menghasilkan .so."
+            echo "Searching:"
+            find TexToolWrap/Android/build \
+              -type f \
+              -name "*.so" \
+              -print
+
             exit 1
           fi
 
           echo ""
-          echo "✓ Native library ditemukan:"
-          echo "$SO_FILES"
+          echo "✓ libtextoolwrap.so berhasil dibuat"
+          ls -lh "$LIB"
 
 
-      # ============================================================
-      # 12. PREPARE OUTPUT
-      # ============================================================
-      - name: Prepare Android output
+      - name: Prepare Android JNI
         shell: bash
         run: |
           echo "======================================="
-          echo "PREPARE OUTPUT"
+          echo "PREPARE JNI LIBRARY"
           echo "======================================="
 
           rm -rf output
 
           mkdir -p output/arm64-v8a
 
-          find TexToolWrap/Android/build \
-            -type f \
-            -name "*.so" \
-            -exec cp {} output/arm64-v8a/ \;
+          cp \
+            TexToolWrap/Android/build/libtextoolwrap.so \
+            output/arm64-v8a/
 
           echo ""
-          echo "Output:"
           find output -type f -print
 
 
-      # ============================================================
-      # 13. CHECK ELF ARCHITECTURE
-      # ============================================================
-      - name: Check native library architecture
+      - name: Check ELF
         shell: bash
         run: |
           echo "======================================="
-          echo "CHECK ELF ARCHITECTURE"
+          echo "CHECK ELF"
           echo "======================================="
 
-          if command -v file >/dev/null 2>&1; then
-            find output \
-              -type f \
-              -name "*.so" \
-              -exec file {} \;
-          fi
+          file output/arm64-v8a/libtextoolwrap.so
+
+          echo ""
+          echo "Library size:"
+          ls -lh output/arm64-v8a/libtextoolwrap.so
 
 
-      # ============================================================
-      # 14. UPLOAD ARTIFACT
-      # ============================================================
-      - name: Upload TexToolWrap Android
+      - name: Upload Android library
         uses: actions/upload-artifact@v4
         with:
           name: TexToolWrap-Android-arm64-v8a
@@ -338,31 +254,23 @@ jobs:
           if-no-files-found: error
 
 
-      # ============================================================
-      # 15. FINAL
-      # ============================================================
-      - name: Build summary
+      - name: Final summary
         shell: bash
         run: |
           echo ""
           echo "======================================="
-          echo "TEXTOOLWRAP ANDROID BUILD COMPLETE"
+          echo "SUCCESS"
           echo "======================================="
-
           echo ""
-          echo "ABI:"
-          echo "arm64-v8a"
-
+          echo "TexToolWrap Android:"
+          echo "✓ ARM64"
+          echo "✓ PVRTexLib compiled"
+          echo "✓ libtextoolwrap.so generated"
           echo ""
-          echo "Generated libraries:"
-          find output \
-            -type f \
-            -name "*.so" \
-            -print | sort
-
+          echo "Output:"
+          echo "output/arm64-v8a/libtextoolwrap.so"
           echo ""
           echo "Artifact:"
           echo "TexToolWrap-Android-arm64-v8a"
-
           echo ""
           echo "======================================="
