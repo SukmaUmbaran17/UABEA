@@ -1,14 +1,11 @@
-name: Check APK Texture
+name: check_apk
 
 on:
-  push:
-    branches:
-      - android-port
-
   workflow_dispatch:
 
 jobs:
-  check-apk:
+  build-android:
+    name: check_apk
     runs-on: windows-latest
 
     steps:
