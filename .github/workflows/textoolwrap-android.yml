@@ -5,7 +5,7 @@ on:
 
 jobs:
   build-textoolwrap:
-    name: Compile TextToolWrap ARM64
+    name: Build TextToolWrap Android ARM64
     runs-on: ubuntu-latest
 
     steps:
@@ -17,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
 
       # ==========================================
-      # 2. SETUP JAVA
+      # 2. JAVA
       # ==========================================
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -26,13 +26,13 @@ jobs:
           java-version: '17'
 
       # ==========================================
-      # 3. SETUP ANDROID SDK
+      # 3. ANDROID SDK
       # ==========================================
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
 
       # ==========================================
-      # 4. INSTALL NDK
+      # 4. ANDROID NDK
       # ==========================================
       - name: Install Android NDK
         run: |
@@ -42,18 +42,59 @@ jobs:
           sdkmanager "ndk;27.2.12479018"
 
       # ==========================================
-      # 5. CHECK PROJECT
+      # 5. VERIFY PROJECT STRUCTURE
       # ==========================================
-      - name: Check TexToolWrap
+      - name: Verify TexToolWrap
         run: |
           echo "======================================="
           echo "TEXTOOLWRAP STRUCTURE"
           echo "======================================="
 
+          pwd
+
+          echo ""
+          echo "Files:"
           find TexToolWrap -maxdepth 3 -type f | sort
 
+          echo ""
+          echo "======================================="
+          echo "CMAKE FILES"
+          echo "======================================="
+
+          find . -iname "CMakeLists.txt" -print
+
       # ==========================================
-      # 6. CHECK NDK
+      # 6. VERIFY REQUIRED FILES
+      # ==========================================
+      - name: Verify Required Files
+        run: |
+          echo "======================================="
+          echo "VERIFY REQUIRED FILES"
+          echo "======================================="
+
+          test -f TexToolWrap/textoolwrap.cpp
+          test -f TexToolWrap/android/CMakeLists.txt
+
+          test -d TexToolWrap/PVRTexLib
+          test -d TexToolWrap/ispc
+          test -d TexToolWrap/crunch
+
+          echo ""
+          echo "✓ textoolwrap.cpp ditemukan"
+          echo "✓ CMakeLists.txt ditemukan"
+          echo "✓ PVRTexLib ditemukan"
+          echo "✓ ISPC ditemukan"
+          echo "✓ Crunch ditemukan"
+
+      # ==========================================
+      # 7. CHECK CMAKE
+      # ==========================================
+      - name: Check CMake
+        run: |
+          cmake --version
+
+      # ==========================================
+      # 8. CHECK NDK
       # ==========================================
       - name: Check NDK
         run: |
@@ -64,70 +105,74 @@ jobs:
           ls -la "$ANDROID_HOME/ndk/27.2.12479018"
 
       # ==========================================
-      # 7. PREPARE BUILD DIRECTORY
+      # 9. PREPARE BUILD
       # ==========================================
-      - name: Prepare Android Build
+      - name: Prepare Build Directory
         run: |
+          rm -rf TexToolWrap/android/build
+
           mkdir -p TexToolWrap/android/build
-          mkdir -p TexToolWrap/android/output
+
+          echo "Build directory:"
+          ls -la TexToolWrap/android
 
       # ==========================================
-      # 8. CONFIGURE CMAKE
+      # 10. CONFIGURE CMAKE
       # ==========================================
       - name: Configure CMake
         run: |
-          cd TexToolWrap/android
-
-          cmake -S . -B build \
+          cmake \
+            -S TexToolWrap/android \
+            -B TexToolWrap/android/build \
             -DCMAKE_TOOLCHAIN_FILE="$ANDROID_HOME/ndk/27.2.12479018/build/cmake/android.toolchain.cmake" \
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-24 \
             -DCMAKE_BUILD_TYPE=Release
 
-      # ==========================================
-      # 9. BUILD TEXTTOOLWRAP
+            # ==========================================
+      # 11. BUILD
       # ==========================================
       - name: Build TextToolWrap
         run: |
-          cd TexToolWrap/android
-
-          cmake --build build \
+          cmake \
+            --build TexToolWrap/android/build \
             --config Release \
             --parallel 2
 
       # ==========================================
-      # 10. FIND RESULT
+      # 12. SEARCH RESULT
       # ==========================================
-      - name: Find Native Library
+      - name: Search Native Libraries
         run: |
           echo "======================================="
-          echo "SEARCH RESULT"
+          echo "NATIVE LIBRARIES"
           echo "======================================="
 
-          find TexToolWrap/android \
+          find TexToolWrap/android/build \
             -type f \
-            \( -name "*.so" -o -name "*.a" \) \
+            -name "*.so" \
             -print
 
       # ==========================================
-      # 11. COPY TEXTTOOLWRAP
+      # 13. COLLECT RESULT
       # ==========================================
       - name: Collect libtextoolwrap.so
         run: |
           mkdir -p TexToolWrap/Android/arm64-v8a
 
           find TexToolWrap/android/build \
+            -type f \
             -name "libtextoolwrap.so" \
             -exec cp {} TexToolWrap/Android/arm64-v8a/ \;
 
           echo "======================================="
-          echo "FINAL LIBRARY"
+          echo "FINAL TEXTTOOLWRAP"
           echo "======================================="
 
           ls -lh TexToolWrap/Android/arm64-v8a/
 
       # ==========================================
-      # 12. UPLOAD ARTIFACT
+      # 14. UPLOAD ARTIFACT
       # ==========================================
       - name: Upload TextToolWrap
         uses: actions/upload-artifact@v4
