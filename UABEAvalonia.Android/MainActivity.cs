@@ -911,6 +911,16 @@ private void ViewTexture(
         TextureFile tex =
             TextureFile.ReadTextureFile(
                 baseField);
+                TextureFormat format = (TextureFormat)tex.m_TextureFormat;
+
+SetStatus(
+    "TEXTURE INFO\n\n" +
+    "Width    : " + tex.m_Width + "\n" +
+    "Height   : " + tex.m_Height + "\n" +
+    "Format   : " + format + "\n" +
+    "FormatID : " + tex.m_TextureFormat + "\n" +
+    "Data     : " + encodedData.Length + " bytes"
+);
 
         if (tex == null)
         {
