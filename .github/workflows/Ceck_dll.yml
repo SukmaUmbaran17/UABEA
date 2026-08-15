@@ -1,62 +1,104 @@
-name: check dll
+name: Inspect AssetsTools.NET.Texture
 
 on:
   workflow_dispatch:
+  push:
+    paths:
+      - "AssetsTools.NET.Texture.dll"
+      - "DllInspector/**"
+      - ".github/workflows/**"
 
 jobs:
-  build-android:
-    name: check dll
+  inspect-texture-dll:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout
+
+      # ==========================================
+      # CHECKOUT
+      # ==========================================
+
+      - name: CHECKOUT
         uses: actions/checkout@v4
 
-      - name: Setup .NET
+      # ==========================================
+      # SETUP .NET
+      # ==========================================
+
+      - name: SETUP DOTNET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: "8.0.x"
 
-      - name: Check DLL file
+      # ==========================================
+      # CHECK DLL
+      # ==========================================
+
+      - name: VERIFY DLL
         shell: pwsh
         run: |
-          $dll = "Libs/AssetsTools.NET.Texture.dll"
+          Write-Host "======================================"
+          Write-Host "VERIFY ASSETS TOOLS TEXTURE DLL"
+          Write-Host "======================================"
+
+          $dll = "DllInspector/AssetsTools.NET.Texture.dll"
 
           if (!(Test-Path $dll)) {
-            Write-Error "DLL tidak ditemukan: $dll"
-            exit 1
+              Write-Host ""
+              Write-Host "❌ DLL TIDAK DITEMUKAN:"
+              Write-Host $dll
+              exit 1
           }
+
+          Write-Host ""
+          Write-Host "✓ DLL ditemukan:"
+          Write-Host $dll
 
           $file = Get-Item $dll
 
-          Write-Host "======================================"
-          Write-Host "FILE INFORMATION"
-          Write-Host "======================================"
-          Write-Host "Name : $($file.Name)"
-          Write-Host "Size : $($file.Length) bytes"
-          Write-Host "Path : $($file.FullName)"
-
           Write-Host ""
+          Write-Host "Size:"
+          Write-Host "$($file.Length) bytes"
+
+      # ==========================================
+      # CREATE INSPECTOR PROJECT
+      # ==========================================
+
+      - name: CREATE INSPECTOR
+        shell: pwsh
+        run: |
           Write-Host "======================================"
-          Write-Host "SHA256"
+          Write-Host "CREATE DLL INSPECTOR"
           Write-Host "======================================"
 
-          Get-FileHash $dll -Algorithm SHA256
+          if (!(Test-Path "DllInspector")) {
+              New-Item `
+                -ItemType Directory `
+                -Path "DllInspector" `
+                | Out-Null
+          }
 
-      - name: Create inspector project
+          @'
+          <Project Sdk="Microsoft.NET.Sdk">
+
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net8.0</TargetFramework>
+              <ImplicitUsings>enable</ImplicitUsings>
+              <Nullable>enable</Nullable>
+            </PropertyGroup>
+
+          </Project>
+          '@ | Set-Content "DllInspector/DllInspector.csproj"
+
+      # ==========================================
+      # CREATE INSPECTOR PROGRAM
+      # ==========================================
+
+      - name: CREATE INSPECTOR PROGRAM
         shell: pwsh
         run: |
-          dotnet new console -n DllInspector
 
-      - name: Copy DLL files
-        shell: pwsh
-        run: |
-          Copy-Item "Libs/AssetsTools.NET.Texture.dll" "DllInspector/"
-          Copy-Item "Libs/AssetsTools.NET.dll" "DllInspector/"
-
-      - name: Create inspector code
-        shell: pwsh
-        run: |
           @'
           using System;
           using System.IO;
@@ -79,13 +121,40 @@ jobs:
           Console.WriteLine("Full Name:");
           Console.WriteLine(assembly.FullName);
 
+          // ==========================================
+          // REFERENCES
+          // ==========================================
+
+          Console.WriteLine();
+          Console.WriteLine("======================================");
+          Console.WriteLine("REFERENCES");
+          Console.WriteLine("======================================");
+
+          foreach (
+              AssemblyName reference
+              in assembly.GetReferencedAssemblies()
+                  .OrderBy(r => r.Name)
+          )
+          {
+              Console.WriteLine(
+                  $"{reference.Name} | {reference.Version}"
+              );
+          }
+
+          // ==========================================
+          // TYPES
+          // ==========================================
+
           Console.WriteLine();
           Console.WriteLine("======================================");
           Console.WriteLine("TYPES");
           Console.WriteLine("======================================");
 
-          foreach (Type type in assembly.GetTypes()
-              .OrderBy(t => t.FullName))
+          foreach (
+              Type type
+              in assembly.GetTypes()
+                  .OrderBy(t => t.FullName)
+          )
           {
               Console.WriteLine();
               Console.WriteLine("[TYPE]");
@@ -107,8 +176,10 @@ jobs:
               {
                   Console.WriteLine("  [FIELDS]");
 
-                  foreach (FieldInfo field in fields
-                      .OrderBy(f => f.Name))
+                  foreach (
+                      FieldInfo field
+                      in fields.OrderBy(f => f.Name)
+                  )
                   {
                       Console.WriteLine(
                           $"    {field.FieldType.Name} {field.Name}"
@@ -132,8 +203,10 @@ jobs:
               {
                   Console.WriteLine("  [PROPERTIES]");
 
-                  foreach (PropertyInfo property in properties
-                      .OrderBy(p => p.Name))
+                  foreach (
+                      PropertyInfo property
+                      in properties.OrderBy(p => p.Name)
+                  )
                   {
                       Console.WriteLine(
                           $"    {property.PropertyType.Name} {property.Name}"
@@ -157,14 +230,17 @@ jobs:
               {
                   Console.WriteLine("  [METHODS]");
 
-                  foreach (MethodInfo method in methods
-                      .OrderBy(m => m.Name))
+                  foreach (
+                      MethodInfo method
+                      in methods.OrderBy(m => m.Name)
+                  )
                   {
                       string parameters = string.Join(
                           ", ",
                           method.GetParameters()
                               .Select(p =>
-                                  $"{p.ParameterType.Name} {p.Name}")
+                                  $"{p.ParameterType.Name} {p.Name}"
+                              )
                       );
 
                       Console.WriteLine(
@@ -174,8 +250,180 @@ jobs:
                   }
               }
           }
-          '@ | Set-Content DllInspector/Program.cs
+          '@ | Set-Content "DllInspector/Program.cs"
 
-      - name: Run DLL inspector
+      # ==========================================
+      # COPY DLL
+      # ==========================================
+
+      - name: COPY DLL
+        shell: pwsh
+        run: |
+          Write-Host "======================================"
+          Write-Host "COPY DLL"
+          Write-Host "======================================"
+
+          Copy-Item `
+            "DllInspector/AssetsTools.NET.Texture.dll" `
+            "DllInspector/AssetsTools.NET.Texture.dll" `
+            -Force
+
+          Write-Host "✓ DLL siap diinspeksi"
+
+      # ==========================================
+      # BUILD INSPECTOR
+      # ==========================================
+
+      - name: BUILD INSPECTOR
+        shell: pwsh
         working-directory: DllInspector
-        run: dotnet run
+        run: |
+          Write-Host "======================================"
+          Write-Host "BUILD INSPECTOR"
+          Write-Host "======================================"
+
+          dotnet build -c Release
+
+      # ==========================================
+      # RUN INSPECTOR
+      # ==========================================
+
+      - name: RUN DLL INSPECTOR
+        shell: pwsh
+        working-directory: DllInspector
+        run: |
+
+          Write-Host "======================================"
+          Write-Host "RUN DLL INSPECTOR"
+          Write-Host "======================================"
+
+          dotnet run > output.txt
+
+          Write-Host ""
+          Write-Host "✓ INSPECTION SELESAI"
+
+      # ==========================================
+      # SEARCH ASTC
+      # ==========================================
+
+      - name: SEARCH ASTC REFERENCES
+        shell: pwsh
+        working-directory: DllInspector
+        run: |
+
+          Write-Host ""
+          Write-Host "======================================"
+          Write-Host "ASTC REFERENCES"
+          Write-Host "======================================"
+
+          $result = Select-String `
+            -Path "output.txt" `
+            -Pattern "ASTC" `
+            -Context 5,10
+
+          if ($result) {
+              $result | ForEach-Object {
+                  Write-Host $_
+              }
+          }
+          else {
+              Write-Host ""
+              Write-Host "❌ Tidak ditemukan referensi ASTC."
+          }
+
+      # ==========================================
+      # SEARCH DECODERS
+      # ==========================================
+
+      - name: SEARCH ALL DECODERS
+        shell: pwsh
+        working-directory: DllInspector
+        run: |
+
+          Write-Host ""
+          Write-Host "======================================"
+          Write-Host "ALL DECODER TYPES"
+          Write-Host "======================================"
+
+          $result = Select-String `
+            -Path "output.txt" `
+            -Pattern "Decoder|Decoders" `
+            -Context 2,15
+
+          if ($result) {
+              $result | ForEach-Object {
+                  Write-Host $_
+              }
+          }
+          else {
+              Write-Host ""
+              Write-Host "❌ Tidak ditemukan Decoder."
+          }
+
+      # ==========================================
+      # SEARCH TEXTURE FILE
+      # ==========================================
+
+      - name: SEARCH TEXTUREFILE
+        shell: pwsh
+        working-directory: DllInspector
+        run: |
+
+          Write-Host ""
+          Write-Host "======================================"
+          Write-Host "TEXTUREFILE / DECODEMANAGED"
+          Write-Host "======================================"
+
+          $result = Select-String `
+            -Path "output.txt" `
+            -Pattern "TextureFile|DecodeManaged" `
+            -Context 5,15
+
+          if ($result) {
+              $result | ForEach-Object {
+                  Write-Host $_
+              }
+          }
+          else {
+              Write-Host ""
+              Write-Host "❌ TextureFile / DecodeManaged tidak ditemukan."
+          }
+
+      # ==========================================
+      # SEARCH PVRTEXLIB
+      # ==========================================
+
+      - name: SEARCH PVRTEXLIB
+        shell: pwsh
+        working-directory: DllInspector
+        run: |
+
+          Write-Host ""
+          Write-Host "======================================"
+          Write-Host "PVRTEXLIB / PINVOKE"
+          Write-Host "======================================"
+
+          $result = Select-String `
+            -Path "output.txt" `
+            -Pattern "PVRTexLib|PInvoke" `
+            -Context 5,10
+
+          if ($result) {
+              $result | ForEach-Object {
+                  Write-Host $_
+              }
+          }
+          else {
+              Write-Host ""
+              Write-Host "❌ PVRTexLib / PInvoke tidak ditemukan."
+          }
+
+      # ==========================================
+      # SAVE COMPLETE OUTPUT
+      # ==========================================
+
+      - name: UPLOAD INSPECTION RESULT
+        uses: actions/upload-artifact@v4
+        with:
+          name: AssetsTools-NET-Texture-Inspection
+          path: DllInspector/output.txt
