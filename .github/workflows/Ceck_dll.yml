@@ -2,11 +2,6 @@ name: Inspect AssetsTools.NET.Texture
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - "AssetsTools.NET.Texture.dll"
-      - "DllInspector/**"
-      - ".github/workflows/**"
 
 jobs:
   inspect-texture-dll:
@@ -22,7 +17,7 @@ jobs:
         uses: actions/checkout@v4
 
       # ==========================================
-      # SETUP .NET
+      # SETUP DOTNET
       # ==========================================
 
       - name: SETUP DOTNET
@@ -31,52 +26,85 @@ jobs:
           dotnet-version: "8.0.x"
 
       # ==========================================
-      # CHECK DLL
+      # FIND DLL
       # ==========================================
 
-      - name: VERIFY DLL
+      - name: FIND ASSETS TOOLS TEXTURE DLL
         shell: pwsh
         run: |
           Write-Host "======================================"
-          Write-Host "VERIFY ASSETS TOOLS TEXTURE DLL"
+          Write-Host "SEARCH AssetsTools.NET.Texture.dll"
           Write-Host "======================================"
 
-          $dll = "DllInspector/AssetsTools.NET.Texture.dll"
+          $dlls = Get-ChildItem `
+            -Path . `
+            -Filter "AssetsTools.NET.Texture.dll" `
+            -File `
+            -Recurse `
+            -ErrorAction SilentlyContinue
 
-          if (!(Test-Path $dll)) {
+          if ($dlls.Count -eq 0) {
               Write-Host ""
-              Write-Host "❌ DLL TIDAK DITEMUKAN:"
-              Write-Host $dll
+              Write-Host "❌ AssetsTools.NET.Texture.dll TIDAK DITEMUKAN"
+              Write-Host ""
+              Write-Host "DLL yang ditemukan:"
+              
+              Get-ChildItem `
+                -Path . `
+                -Filter "*.dll" `
+                -File `
+                -Recurse `
+                -ErrorAction SilentlyContinue |
+                Select-Object -First 100 FullName |
+                ForEach-Object {
+                    Write-Host $_.FullName
+                }
+
               exit 1
           }
 
           Write-Host ""
           Write-Host "✓ DLL ditemukan:"
-          Write-Host $dll
+          Write-Host ""
 
-          $file = Get-Item $dll
+          $dlls | ForEach-Object {
+              Write-Host $_.FullName
+          }
+
+          # Ambil DLL pertama
+          $source = $dlls[0].FullName
 
           Write-Host ""
-          Write-Host "Size:"
-          Write-Host "$($file.Length) bytes"
+          Write-Host "Menggunakan:"
+          Write-Host $source
+
+          # ==========================================
+          # CREATE INSPECTOR DIRECTORY
+          # ==========================================
+
+          New-Item `
+            -ItemType Directory `
+            -Force `
+            -Path "DllInspector" |
+            Out-Null
+
+          # Copy DLL ke lokasi inspector
+          Copy-Item `
+            -Path $source `
+            -Destination "DllInspector/AssetsTools.NET.Texture.dll" `
+            -Force
+
+          Write-Host ""
+          Write-Host "✓ DLL disalin ke:"
+          Write-Host "DllInspector/AssetsTools.NET.Texture.dll"
 
       # ==========================================
       # CREATE INSPECTOR PROJECT
       # ==========================================
 
-      - name: CREATE INSPECTOR
+      - name: CREATE INSPECTOR PROJECT
         shell: pwsh
         run: |
-          Write-Host "======================================"
-          Write-Host "CREATE DLL INSPECTOR"
-          Write-Host "======================================"
-
-          if (!(Test-Path "DllInspector")) {
-              New-Item `
-                -ItemType Directory `
-                -Path "DllInspector" `
-                | Out-Null
-          }
 
           @'
           <Project Sdk="Microsoft.NET.Sdk">
@@ -89,7 +117,8 @@ jobs:
             </PropertyGroup>
 
           </Project>
-          '@ | Set-Content "DllInspector/DllInspector.csproj"
+          '@ | Set-Content `
+            "DllInspector/DllInspector.csproj"
 
       # ==========================================
       # CREATE INSPECTOR PROGRAM
@@ -250,25 +279,8 @@ jobs:
                   }
               }
           }
-          '@ | Set-Content "DllInspector/Program.cs"
-
-      # ==========================================
-      # COPY DLL
-      # ==========================================
-
-      - name: COPY DLL
-        shell: pwsh
-        run: |
-          Write-Host "======================================"
-          Write-Host "COPY DLL"
-          Write-Host "======================================"
-
-          Copy-Item `
-            "DllInspector/AssetsTools.NET.Texture.dll" `
-            "DllInspector/AssetsTools.NET.Texture.dll" `
-            -Force
-
-          Write-Host "✓ DLL siap diinspeksi"
+          '@ | Set-Content `
+            "DllInspector/Program.cs"
 
       # ==========================================
       # BUILD INSPECTOR
@@ -393,7 +405,7 @@ jobs:
       # SEARCH PVRTEXLIB
       # ==========================================
 
-      - name: SEARCH PVRTEXLIB
+      - name: SEARCH PVRTEXLIB / PINVOKE
         shell: pwsh
         working-directory: DllInspector
         run: |
@@ -419,7 +431,7 @@ jobs:
           }
 
       # ==========================================
-      # SAVE COMPLETE OUTPUT
+      # UPLOAD RESULT
       # ==========================================
 
       - name: UPLOAD INSPECTION RESULT
