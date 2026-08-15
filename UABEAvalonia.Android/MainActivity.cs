@@ -904,154 +904,233 @@ private void ViewTexture(
             "GetBaseField berhasil.\n\n" +
             "Membaca TextureFile...");
 
-        // --------------------------------------------------------
-        // READ TEXTURE FILE
-        // --------------------------------------------------------
+// ========================================================
+// READ TEXTURE FILE
+// ========================================================
 
-        TextureFile tex =
-            TextureFile.ReadTextureFile(
-                baseField);
+TextureFile tex =
+    TextureFile.ReadTextureFile(
+        baseField);
 
-        if (tex == null)
-        {
-            throw new Exception(
-                "TextureFile.ReadTextureFile() " +
-                "mengembalikan NULL.");
-        }
+if (tex == null)
+{
+    throw new Exception(
+        "TextureFile.ReadTextureFile() " +
+        "mengembalikan NULL.");
+}
 
-        if (tex.m_Width <= 0 ||
-            tex.m_Height <= 0)
-        {
-            throw new Exception(
-                "Ukuran texture tidak valid.\n\n" +
-                "Width: " +
-                tex.m_Width +
-                "\nHeight: " +
-                tex.m_Height);
-        }
+// ========================================================
+// GET TEXTURE FORMAT
+// ========================================================
 
-        TextureFormat format =
-            (TextureFormat)
-            tex.m_TextureFormat;
+TextureFormat format =
+    (TextureFormat)tex.m_TextureFormat;
 
-        // --------------------------------------------------------
-        // TEXTURE INFORMATION
-        // --------------------------------------------------------
+// ========================================================
+// TEXTURE INFO
+// ========================================================
 
-        ShowTextureMessage(
-            "TEXTURE INFO",
-            "TextureFile berhasil dibaca!\n\n" +
-            "Width: " +
-            tex.m_Width +
-            "\nHeight: " +
-            tex.m_Height +
-            "\nFormat: " +
-            format +
-            "\nTextureFormat ID: " +
-            tex.m_TextureFormat +
-            "\nMipCount: " +
-            tex.m_MipCount +
-            "\n\nMengambil texture data...");
+SetStatus(
+    "================================\n" +
+    "TEXTURE INFO\n" +
+    "================================\n\n" +
 
-        // --------------------------------------------------------
-        // GET TEXTURE DATA
-        // --------------------------------------------------------
+    "Width    : " +
+    tex.m_Width +
+    "\n" +
 
-        byte[] encodedData =
-            tex.GetTextureData(
-                assetsFile);
+    "Height   : " +
+    tex.m_Height +
+    "\n" +
 
-        if (encodedData == null ||
-            encodedData.Length == 0)
-        {
-            throw new Exception(
-                "GetTextureData() menghasilkan " +
-                "data kosong.\n\n" +
-                "Kemungkinan texture menggunakan " +
-                "resource eksternal (.resS), " +
-                "atau format texture belum didukung.");
-        }
+    "Format   : " +
+    format +
+    "\n" +
 
-        // --------------------------------------------------------
-        // SHOW DATA INFORMATION
-        // --------------------------------------------------------
+    "FormatID : " +
+    tex.m_TextureFormat +
+    "\n"
+);
 
-        ShowTextureMessage(
-            "TEXTURE DATA",
-            "Data texture berhasil diambil!\n\n" +
-            "Width: " +
-            tex.m_Width +
-            "\nHeight: " +
-            tex.m_Height +
-            "\nFormat: " +
-            format +
-            "\nMipCount: " +
-            tex.m_MipCount +
-            "\nEncoded bytes: " +
-            encodedData.Length +
-            "\n\nMenjalankan decoder...");
+// ========================================================
+// VALIDATE SIZE
+// ========================================================
 
-        // --------------------------------------------------------
-        // DECODE
-        // --------------------------------------------------------
+if (tex.m_Width <= 0 ||
+    tex.m_Height <= 0)
+{
+    throw new Exception(
+        "Ukuran texture tidak valid.\n\n" +
 
-        byte[] bgra =
+        "Width: " +
+        tex.m_Width +
+
+        "\nHeight: " +
+        tex.m_Height
+    );
+}
+
+// ========================================================
+// READ IMAGE DATA
+// ========================================================
+
+byte[] encodedData =
+    tex.GetImageData();
+
+// ========================================================
+// VALIDATE IMAGE DATA
+// ========================================================
+
+if (encodedData == null)
+{
+    throw new Exception(
+        "Texture tidak mempunyai image data."
+    );
+}
+
+if (encodedData.Length == 0)
+{
+    throw new Exception(
+        "Image data texture kosong."
+    );
+}
+
+// ========================================================
+// UPDATE DEBUG INFO
+// ========================================================
+
+SetStatus(
+    "================================\n" +
+    "TEXTURE INFO\n" +
+    "================================\n\n" +
+
+    "Width    : " +
+    tex.m_Width +
+    "\n" +
+
+    "Height   : " +
+    tex.m_Height +
+    "\n" +
+
+    "Format   : " +
+    format +
+    "\n" +
+
+    "FormatID : " +
+    tex.m_TextureFormat +
+    "\n" +
+
+    "Data     : " +
+    encodedData.Length +
+    " bytes\n"
+);
+
+// ========================================================
+// DECODE
+// ========================================================
+
+byte[] bgra =
     TextureFile.DecodeManaged(
         encodedData,
         format,
         tex.m_Width,
         tex.m_Height,
-        true);
+        true
+    );
+
+// ========================================================
+// VALIDATE DECODE RESULT
+// ========================================================
+
+if (bgra == null ||
+    bgra.Length == 0)
+{
+    throw new Exception(
+        "TextureFile.DecodeManaged() " +
+        "menghasilkan data kosong.\n\n" +
+
+        "Format: " +
+        format +
+
+        "\nSize: " +
+        tex.m_Width +
+        "x" +
+        tex.m_Height
+    );
+}
+
+// ========================================================
+// EXPECTED RGBA/BGRA SIZE
+// ========================================================
+
+int expected =
+    tex.m_Width *
+    tex.m_Height *
+    4;
+
+// ========================================================
+// CHECK DECODE SIZE
+// ========================================================
+
+if (bgra.Length < expected)
+{
+    throw new Exception(
+        "Ukuran hasil decoder tidak sesuai.\n\n" +
+
+        "Format: " +
+        format +
+
+        "\nWidth: " +
+        tex.m_Width +
+
+        "\nHeight: " +
+        tex.m_Height +
+
+        "\nExpected: " +
+        expected +
+
+        " bytes\nActual: " +
+        bgra.Length +
+        " bytes"
+    );
+}
+
+// ========================================================
+// DECODE SUCCESS
+// ========================================================
 
 SetStatus(
-    "DECODE TEST\n" +
-    "Format: " + format + "\n" +
-    "Size: " + tex.m_Width + "x" + tex.m_Height + "\n" +
-    "Compressed: " + encodedData.Length + " bytes\n" +
-    "Decoded: " + (bgra?.Length ?? 0) + " bytes");
+    "================================\n" +
+    "DECODE SUCCESS\n" +
+    "================================\n\n" +
 
-        if (bgra == null ||
-            bgra.Length == 0)
-        {
-            throw new Exception(
-                "DecodeManaged() menghasilkan " +
-                "data kosong.");
-        }
+    "Format   : " +
+    format +
 
-        int expected =
-            tex.m_Width *
-            tex.m_Height *
-            4;
+    "\nSize     : " +
+    tex.m_Width +
+    "x" +
+    tex.m_Height +
 
-        if (bgra.Length < expected)
-        {
-            throw new Exception(
-                "Ukuran hasil decoder tidak sesuai.\n\n" +
-                "Expected BGRA bytes: " +
-                expected +
-                "\nActual: " +
-                bgra.Length);
-        }
+    "\nCompressed: " +
+    encodedData.Length +
+    " bytes" +
 
-        // --------------------------------------------------------
-        // CREATE ANDROID BITMAP
-        // --------------------------------------------------------
+    "\nDecoded  : " +
+    bgra.Length +
+    " bytes"
+);
 
-        Bitmap bitmap =
-            CreateBitmapFromBgra(
-                bgra,
-                tex.m_Width,
-                tex.m_Height);
+// ========================================================
+// SHOW PREVIEW
+// ========================================================
 
-        // --------------------------------------------------------
-        // SHOW PREVIEW
-        // --------------------------------------------------------
-
-        ShowTexturePreview(
-            bitmap,
-            tex.m_Width,
-            tex.m_Height,
-            format);
+ShowTexturePreview(
+    bgra,
+    tex.m_Width,
+    tex.m_Height,
+    format
+);
     }
     catch (Exception ex)
     {
