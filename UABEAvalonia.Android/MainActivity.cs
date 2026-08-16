@@ -1023,28 +1023,25 @@ private void ViewTexture(
 }
 
 // ========================================================
-// READ IMAGE DATA
+// GET TEXTURE DATA
 // ========================================================
 
 byte[] encodedData =
-    tex.GetImageData();
+    tex.GetTextureData();
 
 // ========================================================
 // VALIDATE IMAGE DATA
 // ========================================================
 
-if (encodedData == null)
+if (encodedData == null || encodedData.Length == 0)
 {
-    throw new Exception(
-        "Texture tidak mempunyai image data."
-    );
-}
+    Toast.MakeText(
+        this,
+        "Gagal mendapatkan data texture!",
+        ToastLength.Long
+    ).Show();
 
-if (encodedData.Length == 0)
-{
-    throw new Exception(
-        "Image data texture kosong."
-    );
+    return;
 }
 
 // ========================================================
