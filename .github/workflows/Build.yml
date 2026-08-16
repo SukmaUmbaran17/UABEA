@@ -11,7 +11,7 @@ jobs:
     steps:
 
       # =========================================================
-      # 1. CHECKOUT
+      # 1. CHECKOUT SOURCE
       # =========================================================
 
       - name: Checkout repository
@@ -40,81 +40,97 @@ jobs:
 
 
       # =========================================================
-      # 4. ANDROID WORKLOAD
+      # 4. INSTALL ANDROID WORKLOAD
       # =========================================================
 
       - name: Install Android workload
         shell: pwsh
         run: |
+          Write-Host ""
           Write-Host "======================================="
           Write-Host "INSTALL ANDROID WORKLOAD"
           Write-Host "======================================="
 
           dotnet workload install android
 
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "❌ Android workload gagal."
+            exit $LASTEXITCODE
+          }
+
           Write-Host ""
-          Write-Host "Android workload selesai."
+          Write-Host "✓ Android workload berhasil."
 
 
       # =========================================================
-      # 5. BUAT FOLDER LIBS
+      # 5. PREPARE LIBS
       # =========================================================
 
-      - name: Prepare Libs folder
+      - name: Prepare AssetsTools libraries
         shell: pwsh
         run: |
+          Write-Host ""
           Write-Host "======================================="
-          Write-Host "PREPARE LIBS"
+          Write-Host "PREPARE ASSETSTOOLS LIBRARIES"
           Write-Host "======================================="
 
           New-Item `
             -ItemType Directory `
             -Force `
-            -Path "Libs"
+            -Path "Libs" | Out-Null
 
-          Write-Host "Libs folder siap."
+          Write-Host "✓ Folder Libs siap."
 
 
       # =========================================================
-      # 6. DOWNLOAD ASSETSTOOLS.NET
+      # 6. DOWNLOAD ASSETSTOOLS.NET DLL
       # =========================================================
 
-      - name: Download AssetsTools.NET
+      - name: Download AssetsTools.NET libraries
         shell: pwsh
         run: |
 
+          Write-Host ""
           Write-Host "======================================="
           Write-Host "DOWNLOAD ASSETSTOOLS.NET"
           Write-Host "======================================="
 
-          $base =
-            "https://github.com/nesrak1/UABEA/raw/master/Libs"
+          $base = "https://github.com/nesrak1/UABEA/raw/master/Libs"
+
+          Write-Host ""
+          Write-Host "Downloading AssetsTools.NET.dll..."
 
           Invoke-WebRequest `
             -Uri "$base/AssetsTools.NET.dll" `
             -OutFile "Libs/AssetsTools.NET.dll"
 
+          Write-Host "Downloading AssetsTools.NET.Cpp2IL.dll..."
+
           Invoke-WebRequest `
             -Uri "$base/AssetsTools.NET.Cpp2IL.dll" `
             -OutFile "Libs/AssetsTools.NET.Cpp2IL.dll"
 
+          Write-Host "Downloading AssetsTools.NET.MonoCecil.dll..."
+
           Invoke-WebRequest `
             -Uri "$base/AssetsTools.NET.MonoCecil.dll" `
             -OutFile "Libs/AssetsTools.NET.MonoCecil.dll"
+
+          Write-Host "Downloading AssetsTools.NET.Texture.dll..."
 
           Invoke-WebRequest `
             -Uri "$base/AssetsTools.NET.Texture.dll" `
             -OutFile "Libs/AssetsTools.NET.Texture.dll"
 
           Write-Host ""
-          Write-Host "Download selesai."
+          Write-Host "✓ Semua download selesai."
 
 
       # =========================================================
       # 7. VERIFY DLL
       # =========================================================
 
-      - name: Verify AssetsTools DLL
+      - name: Verify AssetsTools libraries
         shell: pwsh
         run: |
 
@@ -136,16 +152,19 @@ jobs:
 
             if (Test-Path $file) {
 
-              $size =
-                (Get-Item $file).Length
+              $item = Get-Item $file
 
-              Write-Host "✓ $file"
-              Write-Host "  Size: $size bytes"
+              Write-Host ""
+              Write-Host "✓ FOUND"
+              Write-Host "  File : $file"
+              Write-Host "  Size : $($item.Length) bytes"
 
             }
             else {
 
-              Write-Host "❌ MISSING: $file"
+              Write-Host ""
+              Write-Host "❌ MISSING"
+              Write-Host "  File : $file"
 
               $failed = $true
             }
@@ -154,7 +173,7 @@ jobs:
           if ($failed) {
 
             Write-Host ""
-            Write-Host "DLL verification FAILED."
+            Write-Host "❌ DLL verification gagal."
 
             exit 1
           }
@@ -164,166 +183,250 @@ jobs:
 
 
       # =========================================================
-      # 8. SHOW PROJECT STRUCTURE
+      # 8. SHOW LIBS
       # =========================================================
 
-      - name: Show Android project
+      - name: Show AssetsTools libraries
         shell: pwsh
         run: |
 
           Write-Host ""
           Write-Host "======================================="
-          Write-Host "ANDROID PROJECT"
+          Write-Host "LIBS CONTENT"
           Write-Host "======================================="
 
-          if (Test-Path "UABEAvalonia.Android") {
+          Get-ChildItem `
+            "Libs" `
+            -File |
+            Select-Object Name, Length
 
-            Get-ChildItem `
-              "UABEAvalonia.Android" `
-              -Recurse |
-              Select-Object FullName
 
-          }
-          else {
+      # =========================================================
+      # 9. VERIFY ANDROID PROJECT
+      # =========================================================
 
-            Write-Host "❌ UABEAvalonia.Android tidak ditemukan."
+      - name: Verify Android project
+        shell: pwsh
+        run: |
+
+          Write-Host ""
+          Write-Host "======================================="
+          Write-Host "VERIFY ANDROID PROJECT"
+          Write-Host "======================================="
+
+          $project =
+            "UABEAvalonia.Android/UABEAvalonia.Android.csproj"
+
+          $main =
+            "UABEAvalonia.Android/MainActivity.cs"
+
+          if (!(Test-Path $project)) {
+
+            Write-Host ""
+            Write-Host "❌ Android csproj tidak ditemukan:"
+            Write-Host $project
 
             exit 1
           }
 
+          if (!(Test-Path $main)) {
+
+            Write-Host ""
+            Write-Host "❌ MainActivity.cs tidak ditemukan:"
+            Write-Host $main
+
+            exit 1
+          }
+
+          Write-Host "✓ UABEAvalonia.Android.csproj"
+          Write-Host "✓ MainActivity.cs"
+
 
       # =========================================================
-      # 9. CHECK MAINACTIVITY
+      # 10. VERIFY MAINACTIVITY TEXTURE API
       # =========================================================
 
-      - name: Verify MainActivity
+      - name: Verify MainActivity texture API
         shell: pwsh
         run: |
 
           Write-Host ""
           Write-Host "======================================="
-          Write-Host "VERIFY MAINACTIVITY"
+          Write-Host "VERIFY MAINACTIVITY TEXTURE API"
           Write-Host "======================================="
 
           $main =
             "UABEAvalonia.Android/MainActivity.cs"
 
-          if (!(Test-Path $main)) {
-
-            Write-Host "❌ MainActivity.cs tidak ditemukan."
-
-            exit 1
-          }
-
-          Write-Host "✓ MainActivity.cs ditemukan."
-
-          Write-Host ""
-          Write-Host "Checking texture API..."
-
           $content =
             Get-Content $main -Raw
 
-          if ($content.Contains("GetImageData")) {
+          Write-Host ""
+          Write-Host "Checking GetImageData()..."
+
+          # Hanya menganggap error jika benar-benar ada
+          # pemanggilan method .GetImageData(...)
+          if ($content -match '\.GetImageData\s*\(') {
 
             Write-Host ""
-            Write-Host "❌ GetImageData masih ditemukan."
+            Write-Host "❌ PEMANGGILAN GetImageData() DITEMUKAN."
 
             Write-Host ""
-            Write-Host "Cari dan hapus penggunaan GetImageData()."
-            Write-Host "MainActivity sekarang harus menggunakan GetTextureData()."
+            Write-Host "Lokasi:"
+            
+            Select-String `
+              -Path $main `
+              -Pattern '\.GetImageData\s*\(' `
+              -Context 3,3
+
+            Write-Host ""
+            Write-Host "Gunakan GetTextureData() sesuai API TextureFile."
 
             exit 1
           }
 
-          if ($content.Contains("GetTextureData")) {
+          Write-Host "✓ Tidak ada pemanggilan GetImageData()."
 
-            Write-Host "✓ GetTextureData ditemukan."
+
+          # -------------------------------------------------------
+          # Check GetTextureData
+          # -------------------------------------------------------
+
+          Write-Host ""
+          Write-Host "Checking GetTextureData()..."
+
+          if ($content -match '\.GetTextureData\s*\(') {
+
+            Write-Host "✓ GetTextureData() ditemukan."
 
           }
           else {
 
             Write-Host ""
-            Write-Host "⚠ GetTextureData tidak ditemukan."
+            Write-Host "⚠ GetTextureData() tidak ditemukan."
 
             Write-Host ""
-            Write-Host "Periksa MainActivity.cs."
+            Write-Host "MainActivity yang digunakan tidak terlihat"
+            Write-Host "memanggil TextureFile.GetTextureData()."
 
             exit 1
           }
 
 
+          # -------------------------------------------------------
+          # Check DecodeManaged
+          # -------------------------------------------------------
+
+          Write-Host ""
+          Write-Host "Checking DecodeManaged()..."
+
+          if ($content -match 'TextureFile\.DecodeManaged\s*\(') {
+
+            Write-Host "✓ TextureFile.DecodeManaged() ditemukan."
+
+          }
+          else {
+
+            Write-Host ""
+            Write-Host "⚠ TextureFile.DecodeManaged() tidak ditemukan."
+
+            Write-Host ""
+            Write-Host "Periksa bagian decoder texture."
+
+          }
+
+
+          Write-Host ""
+          Write-Host "✓ MainActivity texture API check selesai."
+
+
       # =========================================================
-      # 10. CHECK TEXTURE DECODER
+      # 11. SHOW TEXTURE REFERENCES
       # =========================================================
 
-      - name: Check Texture Decoder reference
+      - name: Show texture references
         shell: pwsh
         run: |
 
           Write-Host ""
           Write-Host "======================================="
-          Write-Host "CHECK TEXTURE DECODER"
+          Write-Host "TEXTURE REFERENCES"
           Write-Host "======================================="
 
           $main =
-            Get-Content `
-              "UABEAvalonia.Android/MainActivity.cs" `
-              -Raw
-
-          if ($main.Contains("TextureFile.DecodeManaged")) {
-
-            Write-Host "✓ TextureFile.DecodeManaged ditemukan."
-
-          }
-          else {
-
-            Write-Host ""
-            Write-Host "⚠ TextureFile.DecodeManaged tidak ditemukan."
-
-            Write-Host ""
-            Write-Host "Ini perlu diperiksa sebelum build."
-          }
+            "UABEAvalonia.Android/MainActivity.cs"
 
           Write-Host ""
-          Write-Host "✓ Texture decoder check selesai."
+          Write-Host "GetTextureData:"
+          Select-String `
+            -Path $main `
+            -Pattern "GetTextureData" `
+            -Context 2,2
+
+          Write-Host ""
+          Write-Host "DecodeManaged:"
+          Select-String `
+            -Path $main `
+            -Pattern "DecodeManaged" `
+            -Context 2,2
+
+          Write-Host ""
+          Write-Host "CreateBitmapFromBgra:"
+          Select-String `
+            -Path $main `
+            -Pattern "CreateBitmapFromBgra" `
+            -Context 2,2
 
 
       # =========================================================
-      # 11. CHECK CSPROJ
+      # 12. VERIFY CSPROJ TEXTURE DLL
       # =========================================================
 
-      - name: Verify Android csproj
+      - name: Verify Texture DLL project reference
         shell: pwsh
         run: |
 
           Write-Host ""
           Write-Host "======================================="
-          Write-Host "VERIFY ANDROID CSPROJ"
+          Write-Host "VERIFY CSPROJ REFERENCES"
           Write-Host "======================================="
 
-          $csproj =
+          $project =
             "UABEAvalonia.Android/UABEAvalonia.Android.csproj"
 
-          if (!(Test-Path $csproj)) {
+          $content =
+            Get-Content $project -Raw
 
-            Write-Host "❌ Android csproj tidak ditemukan."
+          if ($content -match "AssetsTools\.NET\.Texture") {
 
-            exit 1
+            Write-Host "✓ AssetsTools.NET.Texture reference ditemukan."
+
+          }
+          else {
+
+            Write-Host ""
+            Write-Host "⚠ AssetsTools.NET.Texture tidak ditemukan"
+            Write-Host "di csproj."
+
+            Write-Host ""
+            Write-Host "Jika DLL digunakan melalui Reference/HintPath,"
+            Write-Host "pastikan reference tersebut tersedia."
           }
 
-          Write-Host "✓ Android csproj ditemukan."
 
-          Write-Host ""
-          Write-Host "Texture DLL reference:"
+          if ($content -match "AssetsTools\.NET\.dll") {
 
-          Select-String `
-            -Path $csproj `
-            -Pattern "AssetsTools.NET.Texture" `
-            -SimpleMatch
+            Write-Host "✓ AssetsTools.NET reference ditemukan."
+
+          }
+          else {
+
+            Write-Host "⚠ AssetsTools.NET reference tidak ditemukan."
+          }
 
 
       # =========================================================
-      # 12. RESTORE
+      # 13. RESTORE
       # =========================================================
 
       - name: Restore Android project
@@ -338,9 +441,20 @@ jobs:
           dotnet restore `
             "UABEAvalonia.Android/UABEAvalonia.Android.csproj"
 
+          if ($LASTEXITCODE -ne 0) {
+
+            Write-Host ""
+            Write-Host "❌ dotnet restore gagal."
+
+            exit $LASTEXITCODE
+          }
+
+          Write-Host ""
+          Write-Host "✓ Restore berhasil."
+
 
       # =========================================================
-      # 13. BUILD
+      # 14. BUILD APK
       # =========================================================
 
       - name: Build Android APK
@@ -349,7 +463,7 @@ jobs:
 
           Write-Host ""
           Write-Host "======================================="
-          Write-Host "BUILD UABEA ANDROID"
+          Write-Host "BUILD UABEA ANDROID APK"
           Write-Host "======================================="
 
           dotnet build `
@@ -357,9 +471,20 @@ jobs:
             -c Release `
             --no-restore
 
+          if ($LASTEXITCODE -ne 0) {
+
+            Write-Host ""
+            Write-Host "❌ BUILD APK GAGAL."
+
+            exit $LASTEXITCODE
+          }
+
+          Write-Host ""
+          Write-Host "✓ BUILD BERHASIL."
+
 
       # =========================================================
-      # 14. SEARCH APK
+      # 15. SEARCH APK
       # =========================================================
 
       - name: Find APK
@@ -375,26 +500,61 @@ jobs:
             Get-ChildItem `
               -Path "." `
               -Recurse `
-              -Filter "*.apk"
+              -Filter "*.apk" `
+              -File
 
           if ($apks.Count -eq 0) {
 
+            Write-Host ""
             Write-Host "❌ APK tidak ditemukan."
 
             exit 1
           }
 
+          Write-Host ""
+
           foreach ($apk in $apks) {
 
-            Write-Host ""
             Write-Host "✓ APK FOUND"
-            Write-Host "Path : $($apk.FullName)"
-            Write-Host "Size : $($apk.Length) bytes"
+            Write-Host "---------------------------------------"
+            Write-Host "Path:"
+            Write-Host $apk.FullName
+            Write-Host ""
+            Write-Host "Size:"
+            Write-Host "$($apk.Length) bytes"
+            Write-Host "---------------------------------------"
           }
 
 
       # =========================================================
-      # 15. UPLOAD APK
+      # 16. SHOW APK DIRECTORY
+      # =========================================================
+
+      - name: Show APK output directory
+        shell: pwsh
+        run: |
+
+          Write-Host ""
+          Write-Host "======================================="
+          Write-Host "APK OUTPUT"
+          Write-Host "======================================="
+
+          if (Test-Path "UABEAvalonia.Android/bin/Release") {
+
+            Get-ChildItem `
+              "UABEAvalonia.Android/bin/Release" `
+              -Recurse `
+              -File |
+              Where-Object {
+                $_.Extension -eq ".apk"
+              } |
+              Select-Object FullName, Length
+
+          }
+
+
+      # =========================================================
+      # 17. UPLOAD APK
       # =========================================================
 
       - name: Upload APK
