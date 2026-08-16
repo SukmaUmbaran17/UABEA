@@ -873,20 +873,14 @@ private void ViewTexture(
     AssetsFileInstance assetsFile,
     AssetFileInfo asset)
 {
-    if (assetsManager == null)
+    if (assetsManager == null || assetList == null)
         return;
 
     try
     {
-        ShowTextureMessage(
-            "TEXTURE VIEWER",
-            "Membaca Texture2D...\n\n" +
-            "TypeID: " + asset.TypeId +
-            "\nPathID: " + asset.PathId);
-
-        // --------------------------------------------------------
-        // GET BASE FIELD
-        // --------------------------------------------------------
+        SetStatus(
+            "Menganalisis Texture2D...\n" +
+            "Mohon tunggu...");
 
         AssetTypeValueField baseField =
             assetsManager.GetBaseField(
@@ -899,15 +893,6 @@ private void ViewTexture(
                 "GetBaseField() mengembalikan NULL.");
         }
 
-        ShowTextureMessage(
-            "TEXTURE VIEWER",
-            "GetBaseField berhasil.\n\n" +
-            "Membaca TextureFile...");
-
-        // --------------------------------------------------------
-        // READ TEXTURE FILE
-        // --------------------------------------------------------
-
         TextureFile tex =
             TextureFile.ReadTextureFile(
                 baseField);
@@ -915,47 +900,86 @@ private void ViewTexture(
         if (tex == null)
         {
             throw new Exception(
-                "TextureFile.ReadTextureFile() " +
-                "mengembalikan NULL.");
+                "TextureFile gagal dibaca.");
         }
 
-        if (tex.m_Width <= 0 ||
-            tex.m_Height <= 0)
-        {
-            throw new Exception(
-                "Ukuran texture tidak valid.\n\n" +
-                "Width: " +
-                tex.m_Width +
-                "\nHeight: " +
-                tex.m_Height);
-        }
+        int width =
+            tex.m_Width;
+
+        int height =
+            tex.m_Height;
 
         TextureFormat format =
-            (TextureFormat)
-            tex.m_TextureFormat;
+            (TextureFormat)tex.m_TextureFormat;
 
-        // --------------------------------------------------------
-        // TEXTURE INFORMATION
-        // --------------------------------------------------------
+        int mipCount =
+            tex.m_MipCount;
 
-        ShowTextureMessage(
-            "TEXTURE INFO",
-            "TextureFile berhasil dibaca!\n\n" +
-            "Width: " +
-            tex.m_Width +
-            "\nHeight: " +
-            tex.m_Height +
-            "\nFormat: " +
-            format +
-            "\nTextureFormat ID: " +
-            tex.m_TextureFormat +
-            "\nMipCount: " +
-            tex.m_MipCount +
-            "\n\nMengambil texture data...");
+        // ========================================================
+        // ASTC DETECTION
+        // ========================================================
 
-        // --------------------------------------------------------
-        // GET TEXTURE DATA
-        // --------------------------------------------------------
+        bool isAstc =
+            format.ToString()
+                .StartsWith(
+                    "ASTC",
+                    StringComparison.OrdinalIgnoreCase);
+
+        int blockWidth = 0;
+        int blockHeight = 0;
+
+        if (format.ToString()
+            .Contains("8x8"))
+        {
+            blockWidth = 8;
+            blockHeight = 8;
+        }
+        else if (format.ToString()
+            .Contains("8x6"))
+        {
+            blockWidth = 8;
+            blockHeight = 6;
+        }
+        else if (format.ToString()
+            .Contains("8x5"))
+        {
+            blockWidth = 8;
+            blockHeight = 5;
+        }
+        else if (format.ToString()
+            .Contains("6x6"))
+        {
+            blockWidth = 6;
+            blockHeight = 6;
+        }
+        else if (format.ToString()
+            .Contains("6x5"))
+        {
+            blockWidth = 6;
+            blockHeight = 5;
+        }
+        else if (format.ToString()
+            .Contains("5x5"))
+        {
+            blockWidth = 5;
+            blockHeight = 5;
+        }
+        else if (format.ToString()
+            .Contains("5x4"))
+        {
+            blockWidth = 5;
+            blockHeight = 4;
+        }
+        else if (format.ToString()
+            .Contains("4x4"))
+        {
+            blockWidth = 4;
+            blockHeight = 4;
+        }
+
+        // ========================================================
+        // GET RAW TEXTURE DATA
+        // ========================================================
 
         byte[] encodedData =
             tex.GetTextureData(
@@ -965,102 +989,287 @@ private void ViewTexture(
             encodedData.Length == 0)
         {
             throw new Exception(
-                "GetTextureData() menghasilkan " +
-                "data kosong.\n\n" +
-                "Kemungkinan texture menggunakan " +
-                "resource eksternal (.resS), " +
-                "atau format texture belum didukung.");
+                "GetTextureData() menghasilkan data kosong.");
         }
 
-        // --------------------------------------------------------
-        // SHOW DATA INFORMATION
-        // --------------------------------------------------------
+        // ========================================================
+        // BLOCK CALCULATION
+        // ========================================================
 
-        ShowTextureMessage(
-            "TEXTURE DATA",
-            "Data texture berhasil diambil!\n\n" +
-            "Width: " +
-            tex.m_Width +
-            "\nHeight: " +
-            tex.m_Height +
-            "\nFormat: " +
+        long blocksX = 0;
+        long blocksY = 0;
+        long expectedFirstMip = 0;
+
+        if (blockWidth > 0 &&
+            blockHeight > 0)
+        {
+            blocksX =
+                (width + blockWidth - 1) /
+                blockWidth;
+
+            blocksY =
+                (height + blockHeight - 1) /
+                blockHeight;
+
+            expectedFirstMip =
+                blocksX *
+                blocksY *
+                16;
+        }
+
+        // ========================================================
+        // FIRST BYTES
+        // ========================================================
+
+        string firstBytes = "";
+
+        int previewCount =
+            Math.Min(
+                encodedData.Length,
+                64);
+
+        for (int i = 0;
+             i < previewCount;
+             i++)
+        {
+            if (i > 0)
+                firstBytes += " ";
+
+            firstBytes +=
+                encodedData[i]
+                    .ToString("X2");
+        }
+
+        // ========================================================
+        // DIAGNOSTIC SCREEN
+        // ========================================================
+
+        ClearAssetList();
+
+        if (assetList == null)
+            return;
+
+        TextView title =
+            new TextView(this);
+
+        title.Text =
+            "=== ASTC DIAGNOSTIC ===";
+
+        title.TextSize =
+            20;
+
+        title.SetPadding(
+            10,
+            20,
+            10,
+            20);
+
+        assetList.AddView(title);
+
+        TextView info =
+            new TextView(this);
+
+        info.Text =
+            "Texture Information\n\n" +
+
+            "Width        : " +
+            width +
+            "\n" +
+
+            "Height       : " +
+            height +
+            "\n" +
+
+            "Format       : " +
             format +
-            "\nMipCount: " +
-            tex.m_MipCount +
-            "\nEncoded bytes: " +
+            "\n" +
+
+            "MipCount     : " +
+            mipCount +
+            "\n\n" +
+
+            "ASTC         : " +
+            isAstc +
+            "\n" +
+
+            "Block Width  : " +
+            blockWidth +
+            "\n" +
+
+            "Block Height : " +
+            blockHeight +
+            "\n\n" +
+
+            "Blocks X     : " +
+            blocksX +
+            "\n" +
+
+            "Blocks Y     : " +
+            blocksY +
+            "\n\n" +
+
+            "Expected Mip0: " +
+            expectedFirstMip +
+            " bytes\n" +
+
+            "Actual Data  : " +
             encodedData.Length +
-            "\n\nMenjalankan decoder...");
+            " bytes\n\n" +
 
-        // --------------------------------------------------------
-        // DECODE
-        // --------------------------------------------------------
+            "First Bytes:\n" +
+            firstBytes;
 
-        byte[] bgra =
-    TextureFile.DecodeManaged(
-        encodedData,
-        format,
-        tex.m_Width,
-        tex.m_Height,
-        true);
+        info.TextSize =
+            15;
 
-SetStatus(
-    "DECODE TEST\n" +
-    "Format: " + format + "\n" +
-    "Size: " + tex.m_Width + "x" + tex.m_Height + "\n" +
-    "Compressed: " + encodedData.Length + " bytes\n" +
-    "Decoded: " + (bgra?.Length ?? 0) + " bytes");
+        info.SetPadding(
+            10,
+            10,
+            10,
+            20);
 
-        if (bgra == null ||
-            bgra.Length == 0)
+        assetList.AddView(info);
+
+        // ========================================================
+        // COMPARE DATA SIZE
+        // ========================================================
+
+        string result;
+
+        if (expectedFirstMip > 0 &&
+            encodedData.Length >= expectedFirstMip)
         {
-            throw new Exception(
-                "DecodeManaged() menghasilkan " +
-                "data kosong.");
+            result =
+                "✓ DATA MIP PERTAMA CUKUP\n\n" +
+                "Data texture memiliki setidaknya " +
+                "ukuran yang dibutuhkan untuk mip pertama.";
         }
-
-        int expected =
-            tex.m_Width *
-            tex.m_Height *
-            4;
-
-        if (bgra.Length < expected)
+        else if (expectedFirstMip > 0)
         {
-            throw new Exception(
-                "Ukuran hasil decoder tidak sesuai.\n\n" +
-                "Expected BGRA bytes: " +
-                expected +
+            result =
+                "⚠ DATA MIP PERTAMA KURANG\n\n" +
+                "Expected: " +
+                expectedFirstMip +
                 "\nActual: " +
-                bgra.Length);
+                encodedData.Length;
+        }
+        else
+        {
+            result =
+                "⚠ Ukuran blok ASTC belum dikenali.";
         }
 
-        // --------------------------------------------------------
-        // CREATE ANDROID BITMAP
-        // --------------------------------------------------------
+        TextView resultText =
+            new TextView(this);
 
-        Bitmap bitmap =
-            CreateBitmapFromBgra(
-                bgra,
-                tex.m_Width,
-                tex.m_Height);
+        resultText.Text =
+            "\n=== HASIL ANALISIS ===\n\n" +
+            result;
 
-        // --------------------------------------------------------
-        // SHOW PREVIEW
-        // --------------------------------------------------------
+        resultText.TextSize =
+            16;
 
-        ShowTexturePreview(
-            bitmap,
-            tex.m_Width,
-            tex.m_Height,
-            format);
+        resultText.SetPadding(
+            10,
+            10,
+            10,
+            20);
+
+        assetList.AddView(resultText);
+
+        // ========================================================
+        // TRY ORIGINAL DECODER
+        // ========================================================
+
+        Button decode =
+            new Button(this);
+
+        decode.Text =
+            "▶ COBA DECODE ASTC";
+
+        decode.Click +=
+            delegate
+            {
+                try
+                {
+                    byte[] bgra =
+                        TextureFile.DecodeManaged(
+                            encodedData,
+                            format,
+                            width,
+                            height,
+                            true);
+
+                    if (bgra == null ||
+                        bgra.Length == 0)
+                    {
+                        throw new Exception(
+                            "DecodeManaged() menghasilkan data kosong.");
+                    }
+
+                    Bitmap bitmap =
+                        CreateBitmapFromBgra(
+                            bgra,
+                            width,
+                            height);
+
+                    ShowTexturePreview(
+                        bitmap,
+                        width,
+                        height,
+                        format);
+
+                    SetStatus(
+                        "Decode berhasil.\n" +
+                        "Data: " +
+                        bgra.Length +
+                        " bytes.");
+                }
+                catch (Exception ex)
+                {
+                    ShowTextureMessage(
+                        "ASTC DECODE ERROR",
+                        ex.ToString());
+                }
+            };
+
+        assetList.AddView(decode);
+
+        // ========================================================
+        // BACK
+        // ========================================================
+
+        Button back =
+            new Button(this);
+
+        back.Text =
+            "← KEMBALI KE INSPECTOR";
+
+        back.Click +=
+            delegate
+            {
+                OpenAssetInspector(
+                    assetsFile,
+                    asset);
+            };
+
+        assetList.AddView(back);
+
+        SetStatus(
+            "ASTC Diagnostic selesai.\n" +
+            format +
+            " / " +
+            width +
+            "x" +
+            height);
     }
     catch (Exception ex)
     {
-        ShowTextureError(
-            asset,
-            ex);
+        ShowTextureMessage(
+            "ASTC DIAGNOSTIC ERROR",
+            ex.ToString());
     }
 }
-
 
 // ============================================================
 // TEXTURE DEBUG MESSAGE
