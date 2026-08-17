@@ -289,6 +289,17 @@ namespace UABEAvalonia.Android
                     return;
                 }
 
+                int expectedMip0;
+                string mipNote;
+                data = PrepareMip0Data(
+                    data,
+                    format,
+                    width,
+                    height,
+                    dataSource,
+                    out expectedMip0,
+                    out mipNote);
+
                 byte[] bgra =
                     TextureFile.DecodeManaged(
                         data,
@@ -304,7 +315,9 @@ namespace UABEAvalonia.Android
                         "DecodeManaged() menghasilkan data tidak valid.\n" +
                         "Format: " + format +
                         "\nSumber: " + dataSource +
-                        "\nEncoded: " + data.Length + " bytes");
+                        "\nMip0: " + expectedMip0 +
+                        " bytes\nActual input: " + data.Length + " bytes\n" +
+                        mipNote);
                 }
 
                 Bitmap bitmap =
@@ -333,6 +346,186 @@ namespace UABEAvalonia.Android
             {
                 ShowTextureError(asset, ex);
             }
+        }
+
+        // ============================================================
+        // EXACT MIP 0 DATA
+        // ============================================================
+        // Unity texture data can contain more than one mip level, or
+        // padding/data that is not part of mip 0. The decoder must receive
+        // exactly the bytes needed by mip 0 whenever we know that size.
+        // This is especially important for ETC/ETC2/ASTC/BC/DXT/PVRTC.
+        // ============================================================
+
+        private int GetMip0Size(TextureFormat format, int width, int height)
+        {
+            if (width <= 0 || height <= 0)
+                return 0;
+
+            string n = format.ToString().ToUpperInvariant();
+
+            // ASTC: one 16-byte block per compressed block.
+            if (n.Contains("ASTC"))
+            {
+                GetAstcBlockSize(format, out int bw, out int bh);
+                if (bw <= 0 || bh <= 0)
+                    return 0;
+
+                long bx = (width + bw - 1L) / bw;
+                long by = (height + bh - 1L) / bh;
+                long size = bx * by * 16L;
+                return CheckedSize(size, "ASTC mip 0");
+            }
+
+            // DXT / BC: 4x4 blocks.
+            // DXT1/BC1 = 8 bytes per block.
+            // DXT3/DXT5/BC2/BC3 = 16 bytes per block.
+            if (n.Contains("DXT1") || n.Contains("BC1"))
+                return GetBlockCompressedSize(width, height, 4, 4, 8);
+
+            if (n.Contains("DXT3") || n.Contains("DXT5") ||
+                n.Contains("BC2") || n.Contains("BC3") ||
+                n.Contains("BC4") || n.Contains("BC5") ||
+                n.Contains("BC6") || n.Contains("BC7"))
+                return GetBlockCompressedSize(width, height, 4, 4, 16);
+
+            // ETC1 / ETC_RGB4 = 8 bytes per 4x4 block.
+            if (n.Contains("ETC_RGB4") || n == "ETC_RGB4")
+                return GetBlockCompressedSize(width, height, 4, 4, 8);
+
+            // ETC2 RGB and ETC2 RGBA1 use 8-byte blocks.
+            if (n.Contains("ETC2_RGB") || n.Contains("ETC2_RGBA1"))
+                return GetBlockCompressedSize(width, height, 4, 4, 8);
+
+            // ETC2 RGBA8 uses two 8-byte blocks = 16 bytes per 4x4 block.
+            if (n.Contains("ETC2_RGBA8"))
+                return GetBlockCompressedSize(width, height, 4, 4, 16);
+
+            // EAC R/RG formats are also block compressed.
+            if (n.Contains("EAC_R") || n.Contains("EAC_R_SIGNED"))
+                return GetBlockCompressedSize(width, height, 4, 4, 8);
+
+            if (n.Contains("EAC_RG") || n.Contains("EAC_RG_SIGNED"))
+                return GetBlockCompressedSize(width, height, 4, 4, 16);
+
+            // PVRTC uses a minimum footprint of 2x2 blocks.
+            // PVRTC 4bpp = 4 bits/pixel, PVRTC 2bpp = 2 bits/pixel.
+            if (n.Contains("PVRTC_RGB4") || n.Contains("PVRTC_RGBA4"))
+            {
+                long pixels = (long)Math.Max(width, 8) * Math.Max(height, 8);
+                long size = (pixels + 1L) / 2L;
+                return CheckedSize(size, "PVRTC 4bpp mip 0");
+            }
+
+            if (n.Contains("PVRTC_RGB2") || n.Contains("PVRTC_RGBA2"))
+            {
+                long pixels = (long)Math.Max(width, 16) * Math.Max(height, 8);
+                long size = (pixels + 3L) / 4L;
+                return CheckedSize(size, "PVRTC 2bpp mip 0");
+            }
+
+            // Common uncompressed Unity formats.
+            int bytesPerPixel = GetUncompressedBytesPerPixel(n);
+            if (bytesPerPixel > 0)
+            {
+                long size = (long)width * height * bytesPerPixel;
+                return CheckedSize(size, "uncompressed mip 0");
+            }
+
+            return 0;
+        }
+
+        private int GetBlockCompressedSize(
+            int width,
+            int height,
+            int bw,
+            int bh,
+            int bytesPerBlock)
+        {
+            long blocksX = (width + bw - 1L) / bw;
+            long blocksY = (height + bh - 1L) / bh;
+            long size = blocksX * blocksY * bytesPerBlock;
+            return CheckedSize(size, "block compressed mip 0");
+        }
+
+        private int GetUncompressedBytesPerPixel(string n)
+        {
+            if (n.Contains("RGBA32") || n.Contains("BGRA32") || n == "ARGB32")
+                return 4;
+
+            if (n == "RGB24")
+                return 3;
+
+            if (n.Contains("RGB565") || n.Contains("ARGB4444") ||
+                n.Contains("RGBA4444"))
+                return 2;
+
+            if (n == "ALPHA8" || n == "R8")
+                return 1;
+
+            if (n.Contains("R16") || n.Contains("RHALF") ||
+                n.Contains("RG16") || n.Contains("RGHALF"))
+                return 2;
+
+            if (n.Contains("RFloat".ToUpperInvariant()) ||
+                n == "R32" || n.Contains("R32_SFLOAT"))
+                return 4;
+
+            if (n.Contains("RGBAHALF") || n.Contains("RGBAFLOAT"))
+                return 8;
+
+            return 0;
+        }
+
+        private int CheckedSize(long size, string label)
+        {
+            if (size <= 0 || size > int.MaxValue)
+                throw new Exception("Ukuran " + label + " tidak valid: " + size);
+            return (int)size;
+        }
+
+        private byte[] PrepareMip0Data(
+            byte[] data,
+            TextureFormat format,
+            int width,
+            int height,
+            string source,
+            out int expectedSize,
+            out string note)
+        {
+            expectedSize = GetMip0Size(format, width, height);
+
+            if (expectedSize <= 0)
+            {
+                note = "Ukuran mip 0 tidak dapat dihitung otomatis; data dipakai apa adanya.";
+                return data;
+            }
+
+            if (data.Length < expectedSize)
+            {
+                throw new Exception(
+                    "Data texture kurang untuk mip 0.\n" +
+                    "Format: " + format + "\n" +
+                    "Size: " + width + "x" + height + "\n" +
+                    "Expected mip0: " + expectedSize + " bytes\n" +
+                    "Actual: " + data.Length + " bytes\n" +
+                    "Sumber: " + source);
+            }
+
+            if (data.Length == expectedSize)
+            {
+                note = "Data sudah tepat sebesar mip 0.";
+                return data;
+            }
+
+            byte[] mip0 = new byte[expectedSize];
+            Buffer.BlockCopy(data, 0, mip0, 0, expectedSize);
+
+            note =
+                "Data dipotong ke mip 0: " +
+                data.Length + " → " + expectedSize + " bytes.";
+
+            return mip0;
         }
 
         private bool IsAstcFormat(TextureFormat format) =>
@@ -585,7 +778,7 @@ namespace UABEAvalonia.Android
                 if (index < 0)
                 {
                     for (int i = 0;
-                         i < bundle.file.BlockAndDirInfo.DirectoryInfos.Count();
+                         i < bundle.file.BlockAndDirInfo.DirectoryInfos.Count;
                          i++)
                     {
                         string dirName =
@@ -1173,42 +1366,16 @@ namespace UABEAvalonia.Android
                     "Sumber: " + source);
             }
 
-            if (IsAstcFormat(format))
-            {
-                GetAstcBlockSize(
-                    format,
-                    out int bw,
-                    out int bh);
-
-                int expected =
-                    GetAstcMipSize(
-                        width,
-                        height,
-                        bw,
-                        bh);
-
-                if (expected <= 0 ||
-                    data.Length < expected)
-                {
-                    throw new Exception(
-                        "Data ASTC tidak cukup untuk mip 0.\n" +
-                        "Expected: " + expected +
-                        "\nActual: " + data.Length +
-                        "\nSumber: " + source);
-                }
-
-                byte[] mip0 =
-                    new byte[expected];
-
-                Buffer.BlockCopy(
-                    data,
-                    0,
-                    mip0,
-                    0,
-                    expected);
-
-                data = mip0;
-            }
+            int exportExpectedMip0;
+            string exportMipNote;
+            data = PrepareMip0Data(
+                data,
+                format,
+                width,
+                height,
+                source,
+                out exportExpectedMip0,
+                out exportMipNote);
 
             byte[] bgra =
                 TextureFile.DecodeManaged(
@@ -1258,7 +1425,9 @@ namespace UABEAvalonia.Android
                 "✓ EXPORT BERHASIL\n" +
                 width + "x" + height +
                 "\nFormat: " + format +
-                "\nSumber: " + source);
+                "\nSumber: " + source +
+                "\nMip0: " + exportExpectedMip0 + " bytes" +
+                "\n" + exportMipNote);
         }
 
         // ============================================================
