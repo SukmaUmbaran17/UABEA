@@ -224,141 +224,844 @@ namespace UABEAvalonia.Android
         private void ViewTexture(AssetsFileInstance f, AssetFileInfo asset)
         {
             if (assetsManager == null || assetList == null) return;
+
             try
             {
-                AssetTypeValueField baseField = assetsManager.GetBaseField(f, asset);
-                if (baseField == null) throw new Exception("GetBaseField() mengembalikan NULL.");
-                TextureFile tex = TextureFile.ReadTextureFile(baseField);
-                if (tex == null) throw new Exception("TextureFile gagal dibaca.");
-                int width = tex.m_Width, height = tex.m_Height;
+                AssetTypeValueField baseField =
+                    assetsManager.GetBaseField(f, asset);
+
+                if (baseField == null)
+                    throw new Exception("GetBaseField() mengembalikan NULL.");
+
+                TextureFile tex =
+                    TextureFile.ReadTextureFile(baseField);
+
+                if (tex == null)
+                    throw new Exception("TextureFile gagal dibaca.");
+
+                int width = tex.m_Width;
+                int height = tex.m_Height;
                 TextureFormat format = (TextureFormat)tex.m_TextureFormat;
-                if (width <= 0 || height <= 0) throw new Exception("Ukuran texture tidak valid: " + width + "x" + height);
-                byte[] data = tex.GetTextureData(f);
-                if (data == null || data.Length == 0) throw new Exception("GetTextureData() menghasilkan data kosong.");
+
+                if (width <= 0 || height <= 0)
+                    throw new Exception(
+                        "Ukuran texture tidak valid: " + width + "x" + height);
+
+                byte[] data;
+                string dataSource;
+
+                // ------------------------------------------------------------
+                // PENTING:
+                // Untuk texture streamed (m_StreamData.size > 0), jangan
+                // memakai GetTextureData() sebagai sumber ASTC mentah.
+                // Data asli berada di .resS pada offset/size m_StreamData.
+                // ------------------------------------------------------------
+                byte[]? streamData =
+                    ReadTextureStreamData(
+                        f,
+                        baseField,
+                        out dataSource);
+
+                if (streamData != null && streamData.Length > 0)
+                {
+                    data = streamData;
+                }
+                else
+                {
+                    dataSource = "m_TextureData / GetTextureData()";
+                    data = tex.GetTextureData(f);
+                }
+
+                if (data == null || data.Length == 0)
+                    throw new Exception(
+                        "Data texture kosong.\n\nSumber: " + dataSource);
 
                 if (IsAstcFormat(format))
                 {
-                    ShowAstcDiagnostic(baseField, tex, data, format, f, asset);
+                    ShowAstcDiagnostic(
+                        baseField,
+                        tex,
+                        data,
+                        format,
+                        f,
+                        asset,
+                        dataSource);
                     return;
                 }
 
-                byte[] bgra = TextureFile.DecodeManaged(data, format, width, height, true);
-                if (bgra == null || bgra.Length < width * height * 4) throw new Exception("DecodeManaged() menghasilkan data tidak valid.");
-                Bitmap bitmap = CreateBitmapFromBgra(bgra, width, height);
-                ShowTexturePreview(bitmap, width, height, format, data.Length, bgra.Length, f, asset);
-                SetStatus("✓ Texture berhasil didecode.\n" + width + "x" + height + " / " + format);
+                byte[] bgra =
+                    TextureFile.DecodeManaged(
+                        data,
+                        format,
+                        width,
+                        height,
+                        true);
+
+                if (bgra == null ||
+                    bgra.Length < width * height * 4)
+                {
+                    throw new Exception(
+                        "DecodeManaged() menghasilkan data tidak valid.\n" +
+                        "Format: " + format +
+                        "\nSumber: " + dataSource +
+                        "\nEncoded: " + data.Length + " bytes");
+                }
+
+                Bitmap bitmap =
+                    CreateBitmapFromBgra(
+                        bgra,
+                        width,
+                        height);
+
+                ShowTexturePreview(
+                    bitmap,
+                    width,
+                    height,
+                    format,
+                    data.Length,
+                    bgra.Length,
+                    f,
+                    asset);
+
+                SetStatus(
+                    "✓ Texture berhasil didecode.\n" +
+                    width + "x" + height +
+                    " / " + format +
+                    "\nSumber: " + dataSource);
             }
-            catch (Exception ex) { ShowTextureError(asset, ex); }
+            catch (Exception ex)
+            {
+                ShowTextureError(asset, ex);
+            }
         }
 
-        private bool IsAstcFormat(TextureFormat format) => format.ToString().IndexOf("ASTC", StringComparison.OrdinalIgnoreCase) >= 0;
+        private bool IsAstcFormat(TextureFormat format) =>
+            format.ToString().IndexOf(
+                "ASTC",
+                StringComparison.OrdinalIgnoreCase) >= 0;
 
-        private void GetAstcBlockSize(TextureFormat format, out int bw, out int bh)
+        private void GetAstcBlockSize(
+            TextureFormat format,
+            out int bw,
+            out int bh)
         {
-            bw = bh = 0; string n = format.ToString().ToUpperInvariant();
-            string[] sizes = { "4X4", "5X4", "5X5", "6X5", "6X6", "8X5", "8X6", "8X8", "10X5", "10X6", "10X8", "10X10", "12X10", "12X12" };
-            foreach (string s in sizes) if (n.Contains(s)) { string[] p = s.Split('X'); bw = int.Parse(p[0]); bh = int.Parse(p[1]); return; }
+            bw = bh = 0;
+
+            string n =
+                format.ToString().ToUpperInvariant();
+
+            string[] sizes =
+            {
+                "4X4", "5X4", "5X5", "6X5", "6X6",
+                "8X5", "8X6", "8X8", "10X5", "10X6",
+                "10X8", "10X10", "12X10", "12X12"
+            };
+
+            foreach (string size in sizes)
+            {
+                if (!n.Contains(size))
+                    continue;
+
+                string[] parts =
+                    size.Split('X');
+
+                bw = int.Parse(parts[0]);
+                bh = int.Parse(parts[1]);
+                return;
+            }
         }
 
-        private int GetAstcMipSize(int width, int height, int bw, int bh)
+        private int GetAstcMipSize(
+            int width,
+            int height,
+            int bw,
+            int bh)
         {
-            if (bw <= 0 || bh <= 0) return 0;
-            long bx = (width + bw - 1) / bw, by = (height + bh - 1) / bh;
-            long size = bx * by * 16L; if (size > int.MaxValue) throw new Exception("Ukuran ASTC terlalu besar."); return (int)size;
+            if (bw <= 0 || bh <= 0)
+                return 0;
+
+            long blocksX =
+                (width + bw - 1) / bw;
+
+            long blocksY =
+                (height + bh - 1) / bh;
+
+            long size =
+                blocksX * blocksY * 16L;
+
+            if (size > int.MaxValue)
+                throw new Exception(
+                    "Ukuran ASTC terlalu besar.");
+
+            return (int)size;
         }
 
-        private AssetTypeValueField? FindField(AssetTypeValueField root, string name)
+        private AssetTypeValueField? FindField(
+            AssetTypeValueField root,
+            string name)
         {
-            if (root == null) return null;
-            if (string.Equals(SafeFieldName(root), name, StringComparison.Ordinal)) return root;
-            for (int i = 0; i < GetChildCount(root); i++) { var c = GetChild(root, i); if (c != null) { var r = FindField(c, name); if (r != null) return r; } }
+            if (root == null)
+                return null;
+
+            if (string.Equals(
+                SafeFieldName(root),
+                name,
+                StringComparison.Ordinal))
+            {
+                return root;
+            }
+
+            for (int i = 0;
+                 i < GetChildCount(root);
+                 i++)
+            {
+                AssetTypeValueField? child =
+                    GetChild(root, i);
+
+                if (child == null)
+                    continue;
+
+                AssetTypeValueField? result =
+                    FindField(child, name);
+
+                if (result != null)
+                    return result;
+            }
+
             return null;
         }
 
-        private string GetTextureStorageInfo(AssetTypeValueField baseField)
+        private bool TryGetFieldLong(
+            AssetTypeValueField? field,
+            out long value)
         {
-            string s = "";
+            value = 0;
+
+            if (field == null)
+                return false;
+
             try
             {
-                var stream = FindField(baseField, "m_StreamData");
-                s += "\n\n=== m_StreamData ===\n";
-                if (stream == null) s += "Field tidak ditemukan.\n";
-                else
+                value = field.Value.AsLong;
+                return true;
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                value = (long)field.Value.AsULong;
+                return true;
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                value = field.Value.AsInt;
+                return true;
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                value = field.Value.AsUInt;
+                return true;
+            }
+            catch
+            {
+            }
+
+            string text =
+                GetDisplayValue(field);
+
+            if (long.TryParse(
+                text,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out value))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private string GetTextureStreamPath(
+            AssetTypeValueField baseField)
+        {
+            AssetTypeValueField? stream =
+                FindField(baseField, "m_StreamData");
+
+            if (stream == null)
+                return "";
+
+            return GetDisplayValue(
+                FindField(stream, "path"));
+        }
+
+        private byte[]? ReadTextureStreamData(
+            AssetsFileInstance assetsFile,
+            AssetTypeValueField baseField,
+            out string source)
+        {
+            source = "";
+
+            AssetTypeValueField? stream =
+                FindField(baseField, "m_StreamData");
+
+            if (stream == null)
+                return null;
+
+            AssetTypeValueField? offsetField =
+                FindField(stream, "offset");
+
+            AssetTypeValueField? sizeField =
+                FindField(stream, "size");
+
+            AssetTypeValueField? pathField =
+                FindField(stream, "path");
+
+            if (!TryGetFieldLong(offsetField, out long offset) ||
+                !TryGetFieldLong(sizeField, out long size))
+            {
+                return null;
+            }
+
+            string path =
+                GetDisplayValue(pathField);
+
+            if (size <= 0)
+                return null;
+
+            if (offset < 0)
+                throw new Exception(
+                    "m_StreamData.offset tidak valid: " + offset);
+
+            if (size > int.MaxValue)
+                throw new Exception(
+                    "m_StreamData.size terlalu besar: " + size);
+
+            // ------------------------------------------------------------
+            // CASE 1: texture berada di dalam AssetBundle.
+            // Contoh path:
+            // archive:/CAB-xxxx/CAB-xxxx.resS
+            // ------------------------------------------------------------
+            if (path.StartsWith(
+                "archive:/",
+                StringComparison.OrdinalIgnoreCase))
+            {
+                BundleFileInstance? bundle =
+                    assetsFile.parentBundle ?? currentBundle;
+
+                if (bundle == null)
                 {
-                    s += "offset : " + DisplayOrUnknown(FindField(stream, "offset")) + "\n";
-                    s += "size   : " + DisplayOrUnknown(FindField(stream, "size")) + "\n";
-                    s += "path   : " + DisplayOrUnknown(FindField(stream, "path")) + "\n";
+                    throw new Exception(
+                        "Texture memakai archive:/ tetapi parent bundle tidak ditemukan.");
+                }
+
+                string archivePath =
+                    path.Substring("archive:/".Length)
+                        .Replace('\\', '/');
+
+                int slash =
+                    archivePath.LastIndexOf('/');
+
+                string entryName =
+                    slash >= 0
+                    ? archivePath.Substring(slash + 1)
+                    : archivePath;
+
+                int index =
+                    bundle.file.GetFileIndex(entryName);
+
+                // Beberapa bundle menyimpan nama entry dengan variasi
+                // archive path. Kalau exact match gagal, cari berdasarkan
+                // nama file terakhir / suffix.
+                if (index < 0)
+                {
+                    for (int i = 0;
+                         i < bundle.file.BlockAndDirInfo.DirectoryInfos.Count;
+                         i++)
+                    {
+                        string dirName =
+                            bundle.file.BlockAndDirInfo.DirectoryInfos[i].Name;
+
+                        if (string.Equals(
+                            dirName,
+                            entryName,
+                            StringComparison.OrdinalIgnoreCase) ||
+                            dirName.EndsWith(
+                                entryName,
+                                StringComparison.OrdinalIgnoreCase))
+                        {
+                            index = i;
+                            break;
+                        }
+                    }
+                }
+
+                if (index < 0)
+                {
+                    throw new Exception(
+                        "Entry .resS tidak ditemukan di AssetBundle.\n\n" +
+                        "Path:\n" + path +
+                        "\n\nEntry yang dicari:\n" + entryName);
+                }
+
+                byte[] entryData =
+                    BundleHelper.LoadAssetDataFromBundle(
+                        bundle.file,
+                        index);
+
+                if (entryData == null ||
+                    entryData.Length == 0)
+                {
+                    throw new Exception(
+                        "Entry .resS ditemukan tetapi datanya kosong.\n" +
+                        "Entry: " + entryName);
+                }
+
+                if (offset + size > entryData.LongLength)
+                {
+                    throw new Exception(
+                        "m_StreamData berada di luar ukuran entry .resS.\n\n" +
+                        "Offset: " + offset +
+                        "\nSize: " + size +
+                        "\nEntry Size: " + entryData.Length);
+                }
+
+                byte[] result =
+                    new byte[(int)size];
+
+                Buffer.BlockCopy(
+                    entryData,
+                    (int)offset,
+                    result,
+                    0,
+                    (int)size);
+
+                source =
+                    "m_StreamData → AssetBundle .resS\n" +
+                    entryName +
+                    "\noffset=" + offset +
+                    ", size=" + size;
+
+                return result;
+            }
+
+            // ------------------------------------------------------------
+            // CASE 2: external .resS berada di samping .assets.
+            // ------------------------------------------------------------
+            string cleanPath =
+                path.Replace('\\', IOPath.DirectorySeparatorChar)
+                    .TrimStart(
+                        IOPath.DirectorySeparatorChar,
+                        IOPath.AltDirectorySeparatorChar);
+
+            string? baseDirectory =
+                IOPath.GetDirectoryName(assetsFile.path);
+
+            if (string.IsNullOrEmpty(baseDirectory))
+                baseDirectory = CacheDir?.AbsolutePath;
+
+            if (!string.IsNullOrEmpty(baseDirectory))
+            {
+                string externalPath =
+                    IOPath.Combine(
+                        baseDirectory,
+                        cleanPath);
+
+                if (File.Exists(externalPath))
+                {
+                    using FileStream fs =
+                        File.OpenRead(externalPath);
+
+                    if (offset + size > fs.Length)
+                    {
+                        throw new Exception(
+                            "m_StreamData berada di luar file .resS.\n\n" +
+                            "File: " + externalPath +
+                            "\nOffset: " + offset +
+                            "\nSize: " + size +
+                            "\nFile Size: " + fs.Length);
+                    }
+
+                    fs.Position = offset;
+
+                    byte[] result =
+                        new byte[(int)size];
+
+                    int total = 0;
+                    while (total < result.Length)
+                    {
+                        int read =
+                            fs.Read(
+                                result,
+                                total,
+                                result.Length - total);
+
+                        if (read <= 0)
+                            break;
+
+                        total += read;
+                    }
+
+                    if (total != result.Length)
+                        throw new Exception(
+                            "Gagal membaca seluruh data .resS.\n" +
+                            "Expected: " + result.Length +
+                            "\nActual: " + total);
+
+                    source =
+                        "m_StreamData → external .resS\n" +
+                        externalPath +
+                        "\noffset=" + offset +
+                        ", size=" + size;
+
+                    return result;
                 }
             }
-            catch (Exception ex) { s += "\nm_StreamData error: " + ex.Message + "\n"; }
-            s += "\nm_CompleteImageSize: " + DisplayOrUnknown(FindField(baseField, "m_CompleteImageSize"));
-            s += "\n\nm_TextureData: " + (FindField(baseField, "m_TextureData") == null ? "tidak ditemukan" : "ditemukan");
+
+            return null;
+        }
+
+        private string GetTextureStorageInfo(
+            AssetTypeValueField baseField)
+        {
+            string s = "";
+
+            try
+            {
+                AssetTypeValueField? stream =
+                    FindField(baseField, "m_StreamData");
+
+                s += "\n\n=== m_StreamData ===\n";
+
+                if (stream == null)
+                {
+                    s += "Field tidak ditemukan.\n";
+                }
+                else
+                {
+                    s += "offset : " +
+                         DisplayOrUnknown(
+                             FindField(stream, "offset")) +
+                         "\n";
+
+                    s += "size   : " +
+                         DisplayOrUnknown(
+                             FindField(stream, "size")) +
+                         "\n";
+
+                    s += "path   : " +
+                         DisplayOrUnknown(
+                             FindField(stream, "path")) +
+                         "\n";
+                }
+            }
+            catch (Exception ex)
+            {
+                s += "\nm_StreamData error: " +
+                     ex.Message +
+                     "\n";
+            }
+
+            s +=
+                "\nm_CompleteImageSize: " +
+                DisplayOrUnknown(
+                    FindField(baseField, "m_CompleteImageSize"));
+
+            s +=
+                "\n\nm_TextureData: " +
+                (FindField(baseField, "m_TextureData") == null
+                    ? "tidak ditemukan"
+                    : "ditemukan");
+
             return s;
         }
 
-        private string DisplayOrUnknown(AssetTypeValueField? f)
+        private string DisplayOrUnknown(
+            AssetTypeValueField? field)
         {
-            if (f == null) return "(tidak ditemukan)";
-            string v = GetDisplayValue(f); return string.IsNullOrEmpty(v) ? "(kosong)" : v;
+            if (field == null)
+                return "(tidak ditemukan)";
+
+            string value =
+                GetDisplayValue(field);
+
+            return string.IsNullOrEmpty(value)
+                ? "(kosong)"
+                : value;
         }
 
-        private string FirstBytes(byte[] data, int max)
+        private string FirstBytes(
+            byte[] data,
+            int max)
         {
-            int count = Math.Min(data.Length, max); var parts = new List<string>();
-            for (int i = 0; i < count; i++) parts.Add(data[i].ToString("X2", CultureInfo.InvariantCulture) + (((i + 1) % 16 == 0) ? "\n" : " "));
+            int count =
+                Math.Min(data.Length, max);
+
+            var parts =
+                new List<string>();
+
+            for (int i = 0; i < count; i++)
+            {
+                parts.Add(
+                    data[i].ToString(
+                        "X2",
+                        CultureInfo.InvariantCulture) +
+                    (((i + 1) % 16 == 0)
+                        ? "\n"
+                        : " "));
+            }
+
             return string.Join("", parts).Trim();
         }
 
-        private void ShowAstcDiagnostic(AssetTypeValueField baseField, TextureFile tex, byte[] data, TextureFormat format, AssetsFileInstance f, AssetFileInfo asset)
+        private void ShowAstcDiagnostic(
+            AssetTypeValueField baseField,
+            TextureFile tex,
+            byte[] data,
+            TextureFormat format,
+            AssetsFileInstance f,
+            AssetFileInfo asset,
+            string dataSource)
         {
-            if (assetList == null) return;
-            GetAstcBlockSize(format, out int bw, out int bh);
-            int bx = bw > 0 ? (tex.m_Width + bw - 1) / bw : 0;
-            int by = bh > 0 ? (tex.m_Height + bh - 1) / bh : 0;
-            int expected = GetAstcMipSize(tex.m_Width, tex.m_Height, bw, bh);
+            if (assetList == null)
+                return;
+
+            GetAstcBlockSize(
+                format,
+                out int bw,
+                out int bh);
+
+            int bx =
+                bw > 0
+                ? (tex.m_Width + bw - 1) / bw
+                : 0;
+
+            int by =
+                bh > 0
+                ? (tex.m_Height + bh - 1) / bh
+                : 0;
+
+            int expected =
+                GetAstcMipSize(
+                    tex.m_Width,
+                    tex.m_Height,
+                    bw,
+                    bh);
+
             ClearAssetList();
-            var title = new TextView(this) { Text = "=== ASTC DIAGNOSTIC ===", TextSize = 20 }; title.SetPadding(10, 20, 10, 20); assetList.AddView(title);
-            var info = new TextView(this) { TextSize = 15 };
-            info.Text = "Texture Information\n\n" +
-                        "Width      : " + tex.m_Width + "\n" +
-                        "Height     : " + tex.m_Height + "\n" +
-                        "Format     : " + format + "\n" +
-                        "MipCount   : " + tex.m_MipCount + "\n\n" +
-                        "ASTC       : True\n" +
-                        "Block Width: " + bw + "\n" +
-                        "Block Height: " + bh + "\n\n" +
-                        "Blocks X   : " + bx + "\n" +
-                        "Blocks Y   : " + by + "\n\n" +
-                        "Expected Mip0: " + expected + " bytes\n" +
-                        "Actual Data  : " + data.Length + " bytes\n\n" +
-                        "First Bytes:\n" + FirstBytes(data, 64) +
-                        GetTextureStorageInfo(baseField);
-            info.SetPadding(10, 10, 10, 10); assetList.AddView(info);
-            var result = new TextView(this) { TextSize = 16 };
-            result.Text = "\n=== HASIL ANALISIS ===\n\n" + (data.Length >= expected ? "✓ DATA MIP PERTAMA CUKUP\n\nData texture memiliki setidaknya ukuran yang dibutuhkan untuk mip pertama." : "❌ DATA MIP PERTAMA KURANG");
-            result.SetPadding(10, 20, 10, 20); assetList.AddView(result);
-            if (expected > 0 && data.Length >= expected)
+
+            var title =
+                new TextView(this)
+                {
+                    Text = "=== ASTC DIAGNOSTIC ===",
+                    TextSize = 20
+                };
+
+            title.SetPadding(10, 20, 10, 20);
+            assetList.AddView(title);
+
+            var info =
+                new TextView(this)
+                {
+                    TextSize = 15
+                };
+
+            info.Text =
+                "Texture Information\n\n" +
+                "Width      : " + tex.m_Width + "\n" +
+                "Height     : " + tex.m_Height + "\n" +
+                "Format     : " + format + "\n" +
+                "MipCount   : " + tex.m_MipCount + "\n\n" +
+                "ASTC       : True\n" +
+                "Block Width: " + bw + "\n" +
+                "Block Height: " + bh + "\n\n" +
+                "Blocks X   : " + bx + "\n" +
+                "Blocks Y   : " + by + "\n\n" +
+                "Expected Mip0: " + expected + " bytes\n" +
+                "Actual Data  : " + data.Length + " bytes\n\n" +
+                "DATA SOURCE:\n" + dataSource +
+                "\n\nFirst Bytes:\n" +
+                FirstBytes(data, 64) +
+                GetTextureStorageInfo(baseField);
+
+            info.SetPadding(10, 10, 10, 10);
+            assetList.AddView(info);
+
+            var result =
+                new TextView(this)
+                {
+                    TextSize = 16
+                };
+
+            if (data.Length == expected)
             {
-                var decode = new Button(this) { Text = "▶ COBA DECODE ASTC" };
-                decode.Click += delegate { TryDecodeAstc(data, expected, tex.m_Width, tex.m_Height, format, f, asset); }; assetList.AddView(decode);
+                result.Text =
+                    "\n=== HASIL ANALISIS ===\n\n" +
+                    "✓ DATA STREAM TEPAT\n\n" +
+                    "Ukuran data sama persis dengan mip 0 ASTC.";
             }
-            var back = new Button(this) { Text = "← KEMBALI KE INSPECTOR" }; back.Click += delegate { OpenAssetInspector(f, asset); }; assetList.AddView(back);
-            SetStatus("ASTC Diagnostic selesai.\n" + format + " / " + tex.m_Width + "x" + tex.m_Height);
+            else if (data.Length >= expected)
+            {
+                result.Text =
+                    "\n=== HASIL ANALISIS ===\n\n" +
+                    "✓ DATA MIP PERTAMA CUKUP\n\n" +
+                    "Data yang dibaca lebih besar dari mip 0. " +
+                    "Decoder akan menggunakan tepat " +
+                    expected + " bytes.";
+            }
+            else
+            {
+                result.Text =
+                    "\n=== HASIL ANALISIS ===\n\n" +
+                    "❌ DATA MIP PERTAMA KURANG\n\n" +
+                    "Expected: " + expected +
+                    "\nActual: " + data.Length;
+            }
+
+            result.SetPadding(10, 20, 10, 20);
+            assetList.AddView(result);
+
+            if (expected > 0 &&
+                data.Length >= expected)
+            {
+                var decode =
+                    new Button(this)
+                    {
+                        Text = "▶ DECODE ASTC DARI .resS"
+                    };
+
+                decode.Click += delegate
+                {
+                    TryDecodeAstc(
+                        data,
+                        expected,
+                        tex.m_Width,
+                        tex.m_Height,
+                        format,
+                        f,
+                        asset);
+                };
+
+                assetList.AddView(decode);
+            }
+
+            var back =
+                new Button(this)
+                {
+                    Text = "← KEMBALI KE INSPECTOR"
+                };
+
+            back.Click += delegate
+            {
+                OpenAssetInspector(f, asset);
+            };
+
+            assetList.AddView(back);
+
+            SetStatus(
+                "ASTC Diagnostic selesai.\n" +
+                format +
+                " / " +
+                tex.m_Width +
+                "x" +
+                tex.m_Height +
+                "\nSumber: " +
+                dataSource);
         }
 
-        private void TryDecodeAstc(byte[] data, int expected, int width, int height, TextureFormat format, AssetsFileInstance f, AssetFileInfo asset)
+        private void TryDecodeAstc(
+            byte[] data,
+            int expected,
+            int width,
+            int height,
+            TextureFormat format,
+            AssetsFileInstance f,
+            AssetFileInfo asset)
         {
             try
             {
-                SetStatus("Mencoba decode ASTC mip 0...\nMenggunakan " + expected + " bytes pertama dari " + data.Length + " bytes.");
-                byte[] mip0 = data.Take(expected).ToArray();
-                byte[] bgra = TextureFile.DecodeManaged(mip0, format, width, height, true);
-                if (bgra == null || bgra.Length < width * height * 4) throw new Exception("DecodeManaged() menghasilkan data tidak valid. Actual: " + (bgra == null ? 0 : bgra.Length));
-                Bitmap bitmap = CreateBitmapFromBgra(bgra, width, height);
-                ShowTexturePreview(bitmap, width, height, format, mip0.Length, bgra.Length, f, asset);
-                SetStatus("✓ ASTC mip 0 berhasil didecode.\nInput: " + mip0.Length + " bytes\nOutput: " + bgra.Length + " bytes");
+                if (data.Length < expected)
+                {
+                    throw new Exception(
+                        "Data ASTC kurang.\n" +
+                        "Expected: " + expected +
+                        "\nActual: " + data.Length);
+                }
+
+                SetStatus(
+                    "Mencoba decode ASTC mip 0...\n" +
+                    "Menggunakan tepat " +
+                    expected +
+                    " bytes dari data .resS.");
+
+                byte[] mip0 =
+                    new byte[expected];
+
+                Buffer.BlockCopy(
+                    data,
+                    0,
+                    mip0,
+                    0,
+                    expected);
+
+                byte[] bgra =
+                    TextureFile.DecodeManaged(
+                        mip0,
+                        format,
+                        width,
+                        height,
+                        true);
+
+                if (bgra == null ||
+                    bgra.Length < width * height * 4)
+                {
+                    throw new Exception(
+                        "DecodeManaged() menghasilkan data tidak valid.\n" +
+                        "Expected RGBA/BGRA: " +
+                        (width * height * 4) +
+                        " bytes\nActual: " +
+                        (bgra == null ? 0 : bgra.Length));
+                }
+
+                Bitmap bitmap =
+                    CreateBitmapFromBgra(
+                        bgra,
+                        width,
+                        height);
+
+                ShowTexturePreview(
+                    bitmap,
+                    width,
+                    height,
+                    format,
+                    mip0.Length,
+                    bgra.Length,
+                    f,
+                    asset);
+
+                SetStatus(
+                    "✓ ASTC mip 0 berhasil didecode.\n" +
+                    "Input .resS: " +
+                    mip0.Length +
+                    " bytes\nOutput: " +
+                    bgra.Length +
+                    " bytes");
             }
-            catch (Exception ex) { ShowTextureMessage("ASTC DECODE ERROR", ex.ToString()); }
+            catch (Exception ex)
+            {
+                ShowTextureMessage(
+                    "ASTC DECODE ERROR",
+                    ex.ToString());
+            }
         }
 
         private void ShowTextureMessage(string title, string message)
@@ -409,17 +1112,153 @@ namespace UABEAvalonia.Android
 
         private void ExportCurrentTexture(AndroidUri outputUri)
         {
-            if (assetsManager == null || currentAssetsFile == null || currentAsset == null) throw new Exception("Texture aktif tidak ditemukan.");
-            var baseField = assetsManager.GetBaseField(currentAssetsFile, currentAsset); if (baseField == null) throw new Exception("GetBaseField() gagal.");
-            var tex = TextureFile.ReadTextureFile(baseField); if (tex == null) throw new Exception("TextureFile gagal dibaca.");
-            int width = tex.m_Width, height = tex.m_Height; TextureFormat format = (TextureFormat)tex.m_TextureFormat;
-            byte[] data = tex.GetTextureData(currentAssetsFile); if (data == null || data.Length == 0) throw new Exception("GetTextureData() menghasilkan data kosong.");
-            if (IsAstcFormat(format)) { GetAstcBlockSize(format, out int bw, out int bh); int expected = GetAstcMipSize(width, height, bw, bh); if (expected > 0 && data.Length >= expected) data = data.Take(expected).ToArray(); }
-            byte[] bgra = TextureFile.DecodeManaged(data, format, width, height, true); if (bgra == null || bgra.Length < width * height * 4) throw new Exception("DecodeManaged() gagal. Format: " + format);
-            Bitmap bitmap = CreateBitmapFromBgra(bgra, width, height);
-            using Stream? output = ContentResolver.OpenOutputStream(outputUri); if (output == null) throw new Exception("Tidak dapat membuka output.");
-            bool ok = bitmap.Compress(Bitmap.CompressFormat.Png, 100, output); output.Flush(); bitmap.Recycle(); if (!ok) throw new Exception("Bitmap gagal diexport ke PNG.");
-            SetStatus("✓ EXPORT BERHASIL\n" + width + "x" + height + "\nFormat: " + format);
+            if (assetsManager == null ||
+                currentAssetsFile == null ||
+                currentAsset == null)
+            {
+                throw new Exception(
+                    "Texture aktif tidak ditemukan.");
+            }
+
+            AssetTypeValueField baseField =
+                assetsManager.GetBaseField(
+                    currentAssetsFile,
+                    currentAsset);
+
+            if (baseField == null)
+                throw new Exception(
+                    "GetBaseField() gagal.");
+
+            TextureFile tex =
+                TextureFile.ReadTextureFile(baseField);
+
+            if (tex == null)
+                throw new Exception(
+                    "TextureFile gagal dibaca.");
+
+            int width = tex.m_Width;
+            int height = tex.m_Height;
+            TextureFormat format =
+                (TextureFormat)tex.m_TextureFormat;
+
+            string source;
+            byte[]? streamData =
+                ReadTextureStreamData(
+                    currentAssetsFile,
+                    baseField,
+                    out source);
+
+            byte[] data;
+
+            if (streamData != null &&
+                streamData.Length > 0)
+            {
+                data = streamData;
+            }
+            else
+            {
+                source =
+                    "m_TextureData / GetTextureData()";
+
+                data =
+                    tex.GetTextureData(
+                        currentAssetsFile);
+            }
+
+            if (data == null ||
+                data.Length == 0)
+            {
+                throw new Exception(
+                    "Data texture kosong.\n" +
+                    "Sumber: " + source);
+            }
+
+            if (IsAstcFormat(format))
+            {
+                GetAstcBlockSize(
+                    format,
+                    out int bw,
+                    out int bh);
+
+                int expected =
+                    GetAstcMipSize(
+                        width,
+                        height,
+                        bw,
+                        bh);
+
+                if (expected <= 0 ||
+                    data.Length < expected)
+                {
+                    throw new Exception(
+                        "Data ASTC tidak cukup untuk mip 0.\n" +
+                        "Expected: " + expected +
+                        "\nActual: " + data.Length +
+                        "\nSumber: " + source);
+                }
+
+                byte[] mip0 =
+                    new byte[expected];
+
+                Buffer.BlockCopy(
+                    data,
+                    0,
+                    mip0,
+                    0,
+                    expected);
+
+                data = mip0;
+            }
+
+            byte[] bgra =
+                TextureFile.DecodeManaged(
+                    data,
+                    format,
+                    width,
+                    height,
+                    true);
+
+            if (bgra == null ||
+                bgra.Length < width * height * 4)
+            {
+                throw new Exception(
+                    "DecodeManaged() gagal.\n" +
+                    "Format: " + format +
+                    "\nSource: " + source);
+            }
+
+            Bitmap bitmap =
+                CreateBitmapFromBgra(
+                    bgra,
+                    width,
+                    height);
+
+            using Stream? output =
+                ContentResolver.OpenOutputStream(
+                    outputUri);
+
+            if (output == null)
+                throw new Exception(
+                    "Tidak dapat membuka output.");
+
+            bool ok =
+                bitmap.Compress(
+                    Bitmap.CompressFormat.Png,
+                    100,
+                    output);
+
+            output.Flush();
+            bitmap.Recycle();
+
+            if (!ok)
+                throw new Exception(
+                    "Bitmap gagal diexport ke PNG.");
+
+            SetStatus(
+                "✓ EXPORT BERHASIL\n" +
+                width + "x" + height +
+                "\nFormat: " + format +
+                "\nSumber: " + source);
         }
 
         // ============================================================
