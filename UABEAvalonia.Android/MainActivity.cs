@@ -585,7 +585,7 @@ namespace UABEAvalonia.Android
                 if (index < 0)
                 {
                     for (int i = 0;
-                         i < bundle.file.BlockAndDirInfo.DirectoryInfos.Count;
+                         i < bundle.file.BlockAndDirInfo.DirectoryInfos.Count();
                          i++)
                     {
                         string dirName =
