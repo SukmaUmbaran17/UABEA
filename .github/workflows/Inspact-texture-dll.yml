@@ -1,150 +1,28 @@
-name: Inspect AssetsTools.NET.Texture
+name: Locate Texture DLL
 
 on:
   workflow_dispatch:
 
 jobs:
-  inspect:
+  locate:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Find DLL
+      - name: Find AssetsTools.NET.Texture.dll
         shell: bash
         run: |
-          echo "=== SEARCH DLL ==="
+          echo "======================================"
+          echo "MENCARI AssetsTools.NET.Texture.dll"
+          echo "======================================"
 
           find . -type f \
             -iname "AssetsTools.NET.Texture.dll" \
             -print
 
-      - name: Download ILSpy
-        shell: bash
-        run: |
-          mkdir -p tools
-
-          wget -q \
-            https://github.com/icsharpcode/ILSpy/releases/latest/download/ILSpy_binaries_linux-x64.zip \
-            -O tools/ilspy.zip
-
-          echo "=== ZIP CONTENT ==="
-          unzip -l tools/ilspy.zip | head -100
-
-          unzip -oq \
-            tools/ilspy.zip \
-            -d tools/ilspy
-
-          echo "=== ILSPY FILES ==="
-          find tools/ilspy -type f | head -100
-
-      - name: Locate DLL
-        shell: bash
-        run: |
-          DLL=$(find . -type f \
-            -iname "AssetsTools.NET.Texture.dll" \
-            | head -n 1)
-
-          if [ -z "$DLL" ]; then
-            echo "❌ DLL TIDAK DITEMUKAN"
-            exit 1
-          fi
-
-          echo "DLL ditemukan:"
-          echo "$DLL"
-
-          echo "DLL_PATH=$DLL" >> "$GITHUB_ENV"
-
-      - name: Locate ilspycmd
-        shell: bash
-        run: |
-          ILSPY=$(find tools/ilspy \
-            -type f \
-            \( -iname "ilspycmd" -o -iname "ILSpyCmd" \) \
-            | head -n 1)
-
-          if [ -z "$ILSPY" ]; then
-            echo "❌ ILSPYCMD TIDAK DITEMUKAN"
-
-            echo ""
-            echo "Isi folder ILSpy:"
-            find tools/ilspy -type f
-
-            exit 1
-          fi
-
-          chmod +x "$ILSPY"
-
-          echo "ILSPYCMD:"
-          echo "$ILSPY"
-
-          echo "ILSPY_PATH=$ILSPY" >> "$GITHUB_ENV"
-
-      - name: Decompile
-        shell: bash
-        run: |
-          rm -rf decompiled
-          mkdir -p decompiled
-
-          echo "================================"
-          echo "DECOMPILING DLL"
-          echo "================================"
-
-          "$ILSPY_PATH" \
-            -p \
-            -o decompiled \
-            "$DLL_PATH"
-
           echo ""
-          echo "================================"
-          echo "HASIL DECOMPILE"
-          echo "================================"
-
-          find decompiled -type f -print
-
-      - name: Create Debug Report
-        shell: bash
-        run: |
-          mkdir -p artifact
-
-          echo "AssetsTools.NET.Texture DLL" \
-            > artifact/README.txt
-
-          echo "" >> artifact/README.txt
-
-          echo "DLL:" \
-            >> artifact/README.txt
-
-          echo "$DLL_PATH" \
-            >> artifact/README.txt
-
-          echo "" >> artifact/README.txt
-
-          echo "Decompiled files:" \
-            >> artifact/README.txt
-
-          find decompiled -type f \
-            >> artifact/README.txt \
-            || true
-
-          echo ""
-          echo "=== SEARCH RESULT ==="
-
-          grep -Rni \
-            -E \
-            "TextureFormat|DecodeManaged|ETC2A8|ETC_RGB4|DecompressETC" \
-            decompiled \
-            > artifact/search-result.txt \
-            || true
-
-          cat artifact/search-result.txt
-
-          cp -r decompiled artifact/source
-
-      - name: Upload Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: AssetsTools-NET-Texture-analysis
-          path: artifact/
-          if-no-files-found: error
+          echo "======================================"
+          echo "SELESAI"
+          echo "======================================"
