@@ -21,21 +21,75 @@ jobs:
             -iname "AssetsTools.NET.Texture.dll" \
             -print
 
-      - name: Download ILSpy
+      - name: Download ILSpy Linux
         shell: bash
         run: |
+          set -e
+
+          echo "======================================"
+          echo "=== DOWNLOAD ILSPY ==="
+          echo "======================================"
+
           mkdir -p tools
 
-          wget -q \
-            https://github.com/icsharpcode/ILSpy/releases/latest/download/ILSpy_binaries_linux-x64.zip \
-            -O tools/ilspy.zip
+          echo "Mengambil release ILSpy terbaru..."
+
+          RELEASE_JSON=$(curl -fsSL \
+            https://api.github.com/repos/icsharpcode/ILSpy/releases/latest)
+
+          echo "$RELEASE_JSON" > tools/release.json
+
+          echo ""
+          echo "=== ASSET RELEASE ==="
+
+          echo "$RELEASE_JSON" \
+            | grep '"browser_download_url"' \
+            | grep -i 'linux' \
+            || true
+
+          ILSPY_URL=$(echo "$RELEASE_JSON" \
+            | grep '"browser_download_url"' \
+            | grep -i 'linux.*x64.*zip' \
+            | head -n 1 \
+            | cut -d '"' -f 4)
+
+          if [ -z "$ILSPY_URL" ]; then
+            echo "❌ Asset ILSpy Linux x64 tidak ditemukan."
+            echo ""
+            echo "Daftar asset:"
+            echo "$RELEASE_JSON" \
+              | grep '"browser_download_url"'
+            exit 1
+          fi
+
+          echo ""
+          echo "ILSpy URL:"
+          echo "$ILSPY_URL"
+
+          curl -fL \
+            "$ILSPY_URL" \
+            -o tools/ilspy.zip
+
+          echo ""
+          echo "=== FILE DOWNLOAD ==="
+          ls -lh tools/ilspy.zip
+
+          echo ""
+          echo "=== EXTRACT ==="
+
+          mkdir -p tools/ilspy
 
           unzip -q \
             tools/ilspy.zip \
             -d tools/ilspy
 
-          echo "=== ILSPY ==="
-          find tools/ilspy -maxdepth 2 -type f | head -50
+          echo ""
+          echo "=== ILSPY FILES ==="
+
+          find tools/ilspy \
+            -maxdepth 3 \
+            -type f \
+            | head -100
 
       - name: Locate DLL
         shell: bash
@@ -60,31 +114,55 @@ jobs:
       - name: Find ILSpy command
         shell: bash
         run: |
+          echo "=== MENCARI ILSPYCMD ==="
+
           find tools/ilspy \
             -type f \
-            \( -name "ilspycmd" -o -name "ILSpyCmd" \) \
+            \( \
+              -name "ilspycmd" \
+              -o -name "ILSpyCmd" \
+              -o -name "ilspycmd.exe" \
+            \) \
             -print
 
       - name: Decompile DLL
         shell: bash
         run: |
+          set -e
+
           mkdir -p decompiled
 
           ILSPY=$(find tools/ilspy \
             -type f \
-            \( -name "ilspycmd" -o -name "ILSpyCmd" \) \
+            \( \
+              -name "ilspycmd" \
+              -o -name "ILSpyCmd" \
+            \) \
             | head -n 1)
 
           if [ -z "$ILSPY" ]; then
             echo "❌ ilspycmd tidak ditemukan."
+
+            echo ""
+            echo "=== SELURUH FILE ILSPY ==="
+
+            find tools/ilspy \
+              -type f \
+              | head -200
+
             exit 1
           fi
 
-          chmod +x "$ILSPY"
+          chmod +x "$ILSPY" || true
 
-          echo "ILSpy:"
+          echo "================================"
+          echo "ILSPY:"
+          echo "$ILSPY"
+          echo "================================"
+
           "$ILSPY" --version || true
 
+          echo ""
           echo "================================"
           echo "DECOMPILING:"
           echo "$DLL_PATH"
@@ -105,10 +183,21 @@ jobs:
 
           grep -Rni \
             -E \
-            "TextureFormat|DecodeManaged|ETC2A8|ETC_RGB4|DecompressETC" \
+            "TextureFormat|DecodeManaged|ETC2A8|ETC_RGB4|DecompressETC|ETC2|ETC" \
             decompiled \
             | head -n 500 \
             || true
+
+      - name: List Decompiled Files
+        shell: bash
+        run: |
+          echo "======================================"
+          echo "=== FILE HASIL DECOMPILE ==="
+          echo "======================================"
+
+          find decompiled \
+            -type f \
+            | sort
 
       - name: Upload Decompiled DLL
         uses: actions/upload-artifact@v4
