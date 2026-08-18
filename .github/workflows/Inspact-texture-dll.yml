@@ -1,112 +1,311 @@
-name: Inspect Texture API
+name: Inspect Texture DLL - Manual
 
 on:
   workflow_dispatch:
 
 jobs:
   inspect:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Verify DLL
-        shell: bash
+      - name: Check Texture DLL
+        shell: pwsh
         run: |
-          echo "======================================"
-          echo "CHECK DLL"
-          echo "======================================"
+          Write-Host "======================================"
+          Write-Host "CHECK AssetsTools.NET.Texture.dll"
+          Write-Host "======================================"
 
-          ls -lh ./Libs/AssetsTools.NET.Texture.dll
+          $dll = Join-Path $env:GITHUB_WORKSPACE "Libs\AssetsTools.NET.Texture.dll"
 
-      - name: Install .NET
+          if (!(Test-Path $dll)) {
+              Write-Host "DLL TIDAK DITEMUKAN:"
+              Write-Host $dll
+              exit 1
+          }
+
+          $info = Get-Item $dll
+
+          Write-Host "DLL:"
+          Write-Host $info.FullName
+
+          Write-Host ""
+          Write-Host "SIZE:"
+          Write-Host $info.Length
+
+      - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 8.0.x
 
-      - name: Install ILSpy
-        shell: bash
+      - name: Create DllInspector
+        shell: pwsh
         run: |
-          dotnet tool install \
-            --global ilspycmd \
-            --version 9.1.0.7988
+          New-Item -ItemType Directory -Force DllInspector | Out-Null
 
-          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+          @'
+          using System;
+          using System.IO;
+          using System.Linq;
+          using System.Reflection;
 
-      - name: Check ILSpy
-        shell: bash
+          class Program
+          {
+              static void Main()
+              {
+                  Console.WriteLine("======================================");
+                  Console.WriteLine("ASSETS TOOLS TEXTURE INSPECTOR");
+                  Console.WriteLine("======================================");
+
+                  string dllPath =
+                      Path.GetFullPath(
+                          Path.Combine(
+                              "..",
+                              "Libs",
+                              "AssetsTools.NET.Texture.dll"));
+
+                  Console.WriteLine();
+                  Console.WriteLine("DLL:");
+                  Console.WriteLine(dllPath);
+
+                  if (!File.Exists(dllPath))
+                  {
+                      Console.WriteLine();
+                      Console.WriteLine("ERROR: DLL TIDAK DITEMUKAN.");
+                      return;
+                  }
+
+                  Assembly asm =
+                      Assembly.LoadFrom(dllPath);
+
+                  Console.WriteLine();
+                  Console.WriteLine("Full Name:");
+                  Console.WriteLine(asm.FullName);
+
+                  Console.WriteLine();
+                  Console.WriteLine("======================================");
+                  Console.WriteLine("REFERENCES");
+                  Console.WriteLine("======================================");
+
+                  foreach (var reference in asm.GetReferencedAssemblies())
+                  {
+                      Console.WriteLine(
+                          reference.FullName);
+                  }
+
+                  Console.WriteLine();
+                  Console.WriteLine("======================================");
+                  Console.WriteLine("TEXTURE TYPES");
+                  Console.WriteLine("======================================");
+
+                  foreach (var type in asm.GetTypes()
+                      .OrderBy(x => x.FullName))
+                  {
+                      string name =
+                          type.FullName ?? type.Name;
+
+                      if (
+                          name.Contains(
+                              "TextureFile",
+                              StringComparison.OrdinalIgnoreCase)
+                          ||
+                          name.Contains(
+                              "TextureFormat",
+                              StringComparison.OrdinalIgnoreCase)
+                          ||
+                          name.Contains(
+                              "ETC",
+                              StringComparison.OrdinalIgnoreCase)
+                          ||
+                          name.Contains(
+                              "Decoder",
+                              StringComparison.OrdinalIgnoreCase))
+                      {
+                          Console.WriteLine();
+                          Console.WriteLine(
+                              "[TYPE] " + name);
+
+                          var methods =
+                              type.GetMethods(
+                                  BindingFlags.Public |
+                                  BindingFlags.NonPublic |
+                                  BindingFlags.Static |
+                                  BindingFlags.Instance |
+                                  BindingFlags.DeclaredOnly);
+
+                          foreach (var method in methods
+                              .OrderBy(x => x.Name))
+                          {
+                              Console.WriteLine(
+                                  "  " +
+                                  method.ToString());
+                          }
+                      }
+                  }
+
+                  Console.WriteLine();
+                  Console.WriteLine("======================================");
+                  Console.WriteLine("TEXTURE FORMAT ENUM");
+                  Console.WriteLine("======================================");
+
+                  Type? formatType =
+                      asm.GetTypes()
+                      .FirstOrDefault(
+                          x =>
+                              x.Name ==
+                              "TextureFormat");
+
+                  if (formatType != null &&
+                      formatType.IsEnum)
+                  {
+                      foreach (var value in
+                          Enum.GetValues(formatType))
+                      {
+                          string name =
+                              Enum.GetName(
+                                  formatType,
+                                  value)
+                              ?? "(unknown)";
+
+                          object? raw =
+                              Convert.ChangeType(
+                                  value,
+                                  Enum.GetUnderlyingType(
+                                      formatType));
+
+                          Console.WriteLine(
+                              name +
+                              " = " +
+                              raw);
+                      }
+                  }
+                  else
+                  {
+                      Console.WriteLine(
+                          "TextureFormat enum tidak ditemukan.");
+                  }
+
+                  Console.WriteLine();
+                  Console.WriteLine("======================================");
+                  Console.WriteLine("TARGET METHODS");
+                  Console.WriteLine("======================================");
+
+                  Type? textureFile =
+                      asm.GetTypes()
+                      .FirstOrDefault(
+                          x =>
+                              x.FullName ==
+                              "AssetsTools.NET.Texture.TextureFile");
+
+                  if (textureFile != null)
+                  {
+                      foreach (var method in
+                          textureFile.GetMethods(
+                              BindingFlags.Public |
+                              BindingFlags.NonPublic |
+                              BindingFlags.Static |
+                              BindingFlags.Instance |
+                              BindingFlags.DeclaredOnly)
+                          .Where(
+                              x =>
+                                  x.Name.Contains(
+                                      "Decode",
+                                      StringComparison.OrdinalIgnoreCase)
+                                  ||
+                                  x.Name.Contains(
+                                      "TextureData",
+                                      StringComparison.OrdinalIgnoreCase)
+                                  ||
+                                  x.Name.Contains(
+                                      "PictureData",
+                                      StringComparison.OrdinalIgnoreCase))
+                          .OrderBy(x => x.Name))
+                      {
+                          Console.WriteLine();
+                          Console.WriteLine(
+                              "METHOD:");
+
+                          Console.WriteLine(
+                              method.ToString());
+
+                          Console.WriteLine(
+                              "IsStatic: " +
+                              method.IsStatic);
+
+                          Console.WriteLine(
+                              "Return: " +
+                              method.ReturnType.FullName);
+
+                          Console.WriteLine(
+                              "Parameters:");
+
+                          foreach (var parameter in
+                              method.GetParameters())
+                          {
+                              Console.WriteLine(
+                                  "  " +
+                                  parameter.Position +
+                                  ": " +
+                                  parameter.ParameterType.FullName +
+                                  " " +
+                                  parameter.Name);
+                          }
+                      }
+                  }
+
+                  Console.WriteLine();
+                  Console.WriteLine("======================================");
+                  Console.WriteLine("INSPECTION SELESAI");
+                  Console.WriteLine("======================================");
+              }
+          }
+          '@ | Set-Content `
+              -Encoding UTF8 `
+              DllInspector\Program.cs
+
+      - name: Create Inspector Project
+        shell: pwsh
         run: |
-          ilspycmd --version
+          @'
+          <Project Sdk="Microsoft.NET.Sdk">
 
-      - name: Decompile Texture DLL
-        shell: bash
+            <PropertyGroup>
+              <OutputType>Exe</OutputType>
+              <TargetFramework>net8.0</TargetFramework>
+              <ImplicitUsings>enable</ImplicitUsings>
+              <Nullable>enable</Nullable>
+            </PropertyGroup>
+
+          </Project>
+          '@ | Set-Content `
+              -Encoding UTF8 `
+              DllInspector\DllInspector.csproj
+
+      - name: Build Inspector
+        shell: pwsh
         run: |
-          rm -rf decompiled
-          mkdir -p decompiled
+          dotnet build `
+            DllInspector\DllInspector.csproj `
+            -c Release
 
-          ilspycmd \
-            -p \
-            -o decompiled \
-            ./Libs/AssetsTools.NET.Texture.dll
-
-          echo ""
-          echo "======================================"
-          echo "DECOMPILED FILES"
-          echo "======================================"
-
-          find decompiled -type f -print
-
-      - name: Search TextureFormat
-        shell: bash
+      - name: Run Inspector
+        shell: pwsh
         run: |
-          echo ""
-          echo "======================================"
-          echo "TEXTURE FORMAT"
-          echo "======================================"
+          Set-Location DllInspector
 
-          grep -Rni \
-            -E \
-            "enum TextureFormat|TextureFormat" \
-            decompiled \
-            | head -n 300 \
-            || true
+          dotnet run `
+            --project DllInspector.csproj `
+            -c Release `
+            --no-build
 
-      - name: Search DecodeManaged
-        shell: bash
-        run: |
-          echo ""
-          echo "======================================"
-          echo "DECODE MANAGED"
-          echo "======================================"
-
-          grep -Rni \
-            -E \
-            "DecodeManaged|ETC2A8|ETC_RGB4|DecompressETC" \
-            decompiled \
-            | head -n 500 \
-            || true
-
-      - name: Show TextureFile
-        shell: bash
-        run: |
-          echo ""
-          echo "======================================"
-          echo "TEXTURE FILE SOURCE"
-          echo "======================================"
-
-          grep -Ril \
-            "class TextureFile" \
-            decompiled \
-            | while read file; do
-              echo ""
-              echo "===== $file ====="
-              sed -n '1,500p' "$file"
-            done
-
-      - name: Upload Decompiled Source
+      - name: Upload Inspector Log
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: TextureDLL-decompiled
-          path: decompiled/
-          if-no-files-found: error
+          name: Texture-DLL-Inspector
+          path: |
+            DllInspector/Program.cs
+            DllInspector/DllInspector.csproj
+          if-no-files-found: warn
