@@ -8,20 +8,47 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
+      # ============================================================
+      # 1. CHECKOUT
+      # ============================================================
       - name: Checkout
         uses: actions/checkout@v4
 
+
+      # ============================================================
+      # 2. FIND ASSETSTOOLS.NET.TEXTURE.DLL
+      # ============================================================
       - name: Find Texture DLL
         shell: bash
         run: |
-          echo "=== MENCARI DLL ==="
+          set -e
+
+          echo "======================================"
+          echo "=== MENCARI AssetsTools.NET.Texture ==="
+          echo "======================================"
 
           find . \
             -type f \
             -iname "AssetsTools.NET.Texture.dll" \
-            -print
+            -print \
+            || true
 
-      - name: Download ILSpy Linux
+          echo ""
+          echo "=== SEMUA DLL AssetsTools ==="
+
+          find . \
+            -type f \
+            -iname "*AssetsTools*.dll" \
+            -print \
+            | head -100 \
+            || true
+
+
+      # ============================================================
+      # 3. DOWNLOAD ILSPY
+      # ============================================================
+      - name: Download ILSpy
         shell: bash
         run: |
           set -e
@@ -34,48 +61,79 @@ jobs:
 
           echo "Mengambil release ILSpy terbaru..."
 
-          RELEASE_JSON=$(curl -fsSL \
-            https://api.github.com/repos/icsharpcode/ILSpy/releases/latest)
-
-          echo "$RELEASE_JSON" > tools/release.json
+          curl -fsSL \
+            https://api.github.com/repos/icsharpcode/ILSpy/releases/latest \
+            -o tools/release.json
 
           echo ""
-          echo "=== ASSET RELEASE ==="
+          echo "=== RELEASE INFO ==="
 
-          echo "$RELEASE_JSON" \
-            | grep '"browser_download_url"' \
-            | grep -i 'linux' \
+          grep -E '"tag_name"|"name"' \
+            tools/release.json \
+            | head -10 \
             || true
 
-          ILSPY_URL=$(echo "$RELEASE_JSON" \
-            | grep '"browser_download_url"' \
-            | grep -i 'linux.*x64.*zip' \
+          echo ""
+          echo "=== ASSET LINUX ==="
+
+          grep '"browser_download_url"' \
+            tools/release.json \
+            | grep -i linux \
+            || true
+
+          echo ""
+          echo "=== MENCARI ZIP LINUX X64 ==="
+
+          ILSPY_URL=$(grep '"browser_download_url"' tools/release.json \
+            | grep -i linux \
+            | grep -Ei 'x64|amd64' \
+            | grep -Ei '\.zip"' \
             | head -n 1 \
             | cut -d '"' -f 4)
 
           if [ -z "$ILSPY_URL" ]; then
-            echo "❌ Asset ILSpy Linux x64 tidak ditemukan."
+
+            echo "⚠️ Linux x64 ZIP tidak ditemukan."
+
             echo ""
-            echo "Daftar asset:"
-            echo "$RELEASE_JSON" \
-              | grep '"browser_download_url"'
+            echo "=== SEMUA DOWNLOAD URL ==="
+
+            grep '"browser_download_url"' \
+              tools/release.json \
+              || true
+
             exit 1
           fi
 
           echo ""
-          echo "ILSpy URL:"
+          echo "ILSPY URL:"
           echo "$ILSPY_URL"
+
+          echo ""
+          echo "=== DOWNLOAD ==="
 
           curl -fL \
             "$ILSPY_URL" \
             -o tools/ilspy.zip
 
           echo ""
-          echo "=== FILE DOWNLOAD ==="
-          ls -lh tools/ilspy.zip
+          echo "=== HASIL DOWNLOAD ==="
 
-          echo ""
-          echo "=== EXTRACT ==="
+          ls -lh \
+            tools/ilspy.zip
+
+
+      # ============================================================
+      # 4. EXTRACT ILSPY
+      # ============================================================
+      - name: Extract ILSpy
+        shell: bash
+        run: |
+          set -e
+
+          echo "======================================"
+          echo "=== EXTRACT ILSPY ==="
+          echo "======================================"
 
           mkdir -p tools/ilspy
 
@@ -84,123 +142,301 @@ jobs:
             -d tools/ilspy
 
           echo ""
-          echo "=== ILSPY FILES ==="
+          echo "=== ISI ILSPY ==="
 
           find tools/ilspy \
             -maxdepth 3 \
             -type f \
-            | head -100
+            | sort \
+            | head -200
 
+
+      # ============================================================
+      # 5. LOCATE DLL
+      # ============================================================
       - name: Locate DLL
         shell: bash
         run: |
+          set -e
+
+          echo "======================================"
+          echo "=== LOCATE TEXTURE DLL ==="
+          echo "======================================"
+
           DLL=$(find . \
             -type f \
             -iname "AssetsTools.NET.Texture.dll" \
             | head -n 1)
 
           if [ -z "$DLL" ]; then
+            echo ""
             echo "❌ AssetsTools.NET.Texture.dll TIDAK DITEMUKAN"
+            echo ""
+
+            echo "DLL yang tersedia:"
+            find . \
+              -type f \
+              -iname "*.dll" \
+              | head -200
+
             exit 1
           fi
 
-          echo "================================"
+          echo ""
+          echo "======================================"
           echo "DLL DITEMUKAN:"
           echo "$DLL"
-          echo "================================"
+          echo "======================================"
 
           echo "DLL_PATH=$DLL" >> "$GITHUB_ENV"
 
-      - name: Find ILSpy command
+
+      # ============================================================
+      # 6. DIAGNOSE ILSPY
+      # ============================================================
+      - name: Diagnose ILSpy
         shell: bash
         run: |
-          echo "=== MENCARI ILSPYCMD ==="
+          set -x
+
+          echo "======================================"
+          echo "=== DIAGNOSE ILSPY ==="
+          echo "======================================"
+
+          echo ""
+          echo "=== ROOT ILSPY ==="
+
+          ls -lah \
+            tools/ilspy
+
+          echo ""
+          echo "=== FILE DENGAN NAMA ILSPY ==="
 
           find tools/ilspy \
             -type f \
-            \( \
-              -name "ilspycmd" \
-              -o -name "ILSpyCmd" \
-              -o -name "ilspycmd.exe" \
-            \) \
-            -print
+            | grep -i "ilspy" \
+            | head -100 \
+            || true
 
+          echo ""
+          echo "=== EXECUTABLE ==="
+
+          find tools/ilspy \
+            -type f \
+            -executable \
+            -print \
+            | head -100 \
+            || true
+
+          echo ""
+          echo "=== MENCARI ILSPYCMD ==="
+
+          ILSPY=$(find tools/ilspy \
+            -type f \
+            \( \
+              -iname "ilspycmd" \
+              -o -iname "ILSpyCmd" \
+              -o -iname "ilspycmd.exe" \
+            \) \
+            | head -n 1)
+
+          if [ -z "$ILSPY" ]; then
+
+            echo ""
+            echo "❌ ILSPYCMD TIDAK DITEMUKAN"
+
+            echo ""
+            echo "Namun workflow TIDAK dihentikan."
+            echo "Kita perlu melihat isi paket ILSpy."
+
+            exit 0
+          fi
+
+          echo ""
+          echo "======================================"
+          echo "ILSPYCMD DITEMUKAN:"
+          echo "$ILSPY"
+          echo "======================================"
+
+          echo ""
+          echo "=== FILE INFO ==="
+
+          file "$ILSPY" \
+            || true
+
+          echo ""
+          echo "=== PERMISSION ==="
+
+          ls -lh "$ILSPY"
+
+          echo ""
+          echo "=== CHMOD ==="
+
+          chmod +x "$ILSPY" \
+            || true
+
+          echo ""
+          echo "=== VERSION ==="
+
+          "$ILSPY" --version \
+            || true
+
+
+      # ============================================================
+      # 7. DECOMPILE DLL
+      # ============================================================
       - name: Decompile DLL
         shell: bash
         run: |
           set -e
+
+          echo "======================================"
+          echo "=== DECOMPILE DLL ==="
+          echo "======================================"
 
           mkdir -p decompiled
 
           ILSPY=$(find tools/ilspy \
             -type f \
             \( \
-              -name "ilspycmd" \
-              -o -name "ILSpyCmd" \
+              -iname "ilspycmd" \
+              -o -iname "ILSpyCmd" \
             \) \
             | head -n 1)
 
           if [ -z "$ILSPY" ]; then
-            echo "❌ ilspycmd tidak ditemukan."
 
             echo ""
-            echo "=== SELURUH FILE ILSPY ==="
+            echo "❌ ilspycmd tidak ditemukan."
+            echo ""
+            echo "Decompile dilewati."
+            echo "Workflow tetap berhasil agar kita bisa"
+            echo "memeriksa artifact ILSpy."
 
-            find tools/ilspy \
-              -type f \
-              | head -200
-
-            exit 1
+            exit 0
           fi
 
-          chmod +x "$ILSPY" || true
-
-          echo "================================"
-          echo "ILSPY:"
-          echo "$ILSPY"
-          echo "================================"
-
-          "$ILSPY" --version || true
+          chmod +x "$ILSPY" \
+            || true
 
           echo ""
-          echo "================================"
-          echo "DECOMPILING:"
+          echo "ILSPY:"
+          echo "$ILSPY"
+
+          echo ""
+          echo "DLL:"
           echo "$DLL_PATH"
-          echo "================================"
+
+          echo ""
+          echo "=== VERSION ==="
+
+          "$ILSPY" --version \
+            || true
+
+          echo ""
+          echo "=== DECOMPILING ==="
 
           "$ILSPY" \
             -p \
             -o decompiled \
             "$DLL_PATH"
 
+          echo ""
+          echo "=== DECOMPILE SELESAI ==="
+
+
+      # ============================================================
+      # 8. SEARCH TEXTURE DECODER
+      # ============================================================
       - name: Search Texture Decoder
         shell: bash
         run: |
-          echo ""
           echo "======================================"
-          echo "=== TEXTURE FORMAT / DECODER ==="
+          echo "=== TEXTURE DECODER ==="
           echo "======================================"
+
+          if [ ! -d "decompiled" ]; then
+            echo "⚠️ Folder decompiled tidak ada."
+            exit 0
+          fi
 
           grep -Rni \
             -E \
-            "TextureFormat|DecodeManaged|ETC2A8|ETC_RGB4|DecompressETC|ETC2|ETC" \
+            "TextureFormat|DecodeManaged|ETC2A8|ETC_RGB4|DecompressETC|ETC2|ETC|PVRTC|ASTC|Crunch|DXT" \
             decompiled \
-            | head -n 500 \
+            | head -n 1000 \
             || true
 
+
+      # ============================================================
+      # 9. FIND INTERESTING FILES
+      # ============================================================
+      - name: Find Texture Files
+        shell: bash
+        run: |
+          echo "======================================"
+          echo "=== FILE TERKAIT TEXTURE ==="
+          echo "======================================"
+
+          if [ ! -d "decompiled" ]; then
+            exit 0
+          fi
+
+          find decompiled \
+            -type f \
+            \( \
+              -iname "*Texture*" \
+              -o -iname "*Decoder*" \
+              -o -iname "*ETC*" \
+              -o -iname "*PVRTC*" \
+              -o -iname "*ASTC*" \
+              -o -iname "*Crunch*" \
+            \) \
+            | sort \
+            | head -500 \
+            || true
+
+
+      # ============================================================
+      # 10. LIST DECOMPILED FILES
+      # ============================================================
       - name: List Decompiled Files
         shell: bash
         run: |
           echo "======================================"
-          echo "=== FILE HASIL DECOMPILE ==="
+          echo "=== HASIL DECOMPILE ==="
           echo "======================================"
+
+          if [ ! -d "decompiled" ]; then
+            echo "⚠️ Tidak ada folder decompiled."
+            exit 0
+          fi
 
           find decompiled \
             -type f \
-            | sort
+            | sort \
+            | head -1000
 
+
+      # ============================================================
+      # 11. UPLOAD ILSPY
+      # ============================================================
+      - name: Upload ILSpy Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ILSpy-Linux-Package
+          path: |
+            tools/ilspy/
+            tools/release.json
+          if-no-files-found: warn
+
+
+      # ============================================================
+      # 12. UPLOAD DECOMPILED
+      # ============================================================
       - name: Upload Decompiled DLL
         uses: actions/upload-artifact@v4
         with:
           name: AssetsTools-NET-Texture-decompiled
           path: decompiled/
+          if-no-files-found: warn
