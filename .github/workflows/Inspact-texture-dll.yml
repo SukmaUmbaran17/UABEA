@@ -1,28 +1,112 @@
-name: Locate Texture DLL
+name: Inspect Texture API
 
 on:
   workflow_dispatch:
 
 jobs:
-  locate:
+  inspect:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Find AssetsTools.NET.Texture.dll
+      - name: Verify DLL
         shell: bash
         run: |
           echo "======================================"
-          echo "MENCARI AssetsTools.NET.Texture.dll"
+          echo "CHECK DLL"
           echo "======================================"
 
-          find . -type f \
-            -iname "AssetsTools.NET.Texture.dll" \
-            -print
+          ls -lh ./Libs/AssetsTools.NET.Texture.dll
+
+      - name: Install .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Install ILSpy
+        shell: bash
+        run: |
+          dotnet tool install \
+            --global ilspycmd \
+            --version 9.1.0.7988
+
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
+
+      - name: Check ILSpy
+        shell: bash
+        run: |
+          ilspycmd --version
+
+      - name: Decompile Texture DLL
+        shell: bash
+        run: |
+          rm -rf decompiled
+          mkdir -p decompiled
+
+          ilspycmd \
+            -p \
+            -o decompiled \
+            ./Libs/AssetsTools.NET.Texture.dll
 
           echo ""
           echo "======================================"
-          echo "SELESAI"
+          echo "DECOMPILED FILES"
           echo "======================================"
+
+          find decompiled -type f -print
+
+      - name: Search TextureFormat
+        shell: bash
+        run: |
+          echo ""
+          echo "======================================"
+          echo "TEXTURE FORMAT"
+          echo "======================================"
+
+          grep -Rni \
+            -E \
+            "enum TextureFormat|TextureFormat" \
+            decompiled \
+            | head -n 300 \
+            || true
+
+      - name: Search DecodeManaged
+        shell: bash
+        run: |
+          echo ""
+          echo "======================================"
+          echo "DECODE MANAGED"
+          echo "======================================"
+
+          grep -Rni \
+            -E \
+            "DecodeManaged|ETC2A8|ETC_RGB4|DecompressETC" \
+            decompiled \
+            | head -n 500 \
+            || true
+
+      - name: Show TextureFile
+        shell: bash
+        run: |
+          echo ""
+          echo "======================================"
+          echo "TEXTURE FILE SOURCE"
+          echo "======================================"
+
+          grep -Ril \
+            "class TextureFile" \
+            decompiled \
+            | while read file; do
+              echo ""
+              echo "===== $file ====="
+              sed -n '1,500p' "$file"
+            done
+
+      - name: Upload Decompiled Source
+        uses: actions/upload-artifact@v4
+        with:
+          name: TextureDLL-decompiled
+          path: decompiled/
+          if-no-files-found: error
