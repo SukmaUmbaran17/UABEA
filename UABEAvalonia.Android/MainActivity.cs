@@ -982,16 +982,45 @@ namespace UABEAvalonia.Android
                 }
 
                 // ====================================================
-                // DECODE
-                // ====================================================
+// DECODE
+// ====================================================
 
-                byte[] bgra =
-                    TextureFile.DecodeManaged(
-                        encodedData,
-                        format,
-                        width,
-                        height,
-                        true);
+byte[] bgra;
+
+if (format == TextureFormat.ETC_RGB4)
+{
+    // ETC_RGB4 = ETC1 RGB, BUKAN ETC2 RGBA8.
+    // Jangan gunakan DecodeManaged() untuk kasus ini
+    // karena pada beberapa texture hasilnya menjadi pecah.
+
+    SetStatus(
+        "Mendeteksi ETC_RGB4...\n" +
+        "Menggunakan ETC decoder langsung.\n\n" +
+        "Size: " +
+        width +
+        "x" +
+        height +
+        "\nInput: " +
+        encodedData.Length +
+        " bytes");
+
+    bgra =
+        ETCDecoders.ReadETC(
+            encodedData,
+            width,
+            height,
+            false);
+}
+else
+{
+    bgra =
+        TextureFile.DecodeManaged(
+            encodedData,
+            format,
+            width,
+            height,
+            true);
+}
 
                 // ====================================================
                 // VALIDATE DECODE
