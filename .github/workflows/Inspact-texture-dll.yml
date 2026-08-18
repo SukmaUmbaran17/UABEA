@@ -5,376 +5,76 @@ on:
 
 jobs:
   inspect:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
 
     steps:
-
-      # ============================================
-      # 1. CHECKOUT
-      # ============================================
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-
-      # ============================================
-      # 2. SETUP .NET
-      # ============================================
-      - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 8.0.x
-
-
-      # ============================================
-      # 3. DOWNLOAD DLL YANG SALING TERKAIT
-      # ============================================
-      - name: Download texture libraries
-        shell: pwsh
+      - name: Check DLL
+        shell: bash
         run: |
+          echo "=== MENCARI DLL ==="
+          find . -type f -iname "AssetsTools.NET.Texture.dll" -print
 
-          $ErrorActionPreference = "Stop"
-
-          New-Item -ItemType Directory -Force -Path DllInspector | Out-Null
-
-          Write-Host "======================================="
-          Write-Host "DOWNLOAD ASSETSTOOLS DLL"
-          Write-Host "======================================="
-
-          $base = "https://github.com/nesrak1/UABEA/raw/master/Libs"
-
-          Invoke-WebRequest `
-            -Uri "$base/AssetsTools.NET.dll" `
-            -OutFile "DllInspector/AssetsTools.NET.dll"
-
-          Invoke-WebRequest `
-            -Uri "$base/AssetsTools.NET.Texture.dll" `
-            -OutFile "DllInspector/AssetsTools.NET.Texture.dll"
-
-          Invoke-WebRequest `
-            -Uri "$base/AssetsTools.NET.Cpp2IL.dll" `
-            -OutFile "DllInspector/AssetsTools.NET.Cpp2IL.dll"
-
-          Invoke-WebRequest `
-            -Uri "$base/AssetsTools.NET.MonoCecil.dll" `
-            -OutFile "DllInspector/AssetsTools.NET.MonoCecil.dll"
-
-          Write-Host ""
-          Write-Host "DLL:"
-          Get-ChildItem DllInspector/*.dll |
-            Select-Object Name,Length
-
-
-      # ============================================
-      # 4. BUAT PROJECT INSPECTOR
-      # ============================================
-      - name: Create inspector project
-        shell: pwsh
+      - name: Install ILSpy
         run: |
+          dotnet tool install --global ilspycmd
+          echo "$HOME/.dotnet/tools" >> "$GITHUB_PATH"
 
-          dotnet new console `
-            -n DllInspectorProject `
-            -f net8.0 `
-            --force
-
-          Copy-Item `
-            "DllInspector/AssetsTools.NET.dll" `
-            "DllInspectorProject/AssetsTools.NET.dll" `
-            -Force
-
-          Copy-Item `
-            "DllInspector/AssetsTools.NET.Texture.dll" `
-            "DllInspectorProject/AssetsTools.NET.Texture.dll" `
-            -Force
-
-          Copy-Item `
-            "DllInspector/AssetsTools.NET.Cpp2IL.dll" `
-            "DllInspectorProject/AssetsTools.NET.Cpp2IL.dll" `
-            -Force
-
-          Copy-Item `
-            "DllInspector/AssetsTools.NET.MonoCecil.dll" `
-            "DllInspectorProject/AssetsTools.NET.MonoCecil.dll" `
-            -Force
-
-
-      # ============================================
-      # 5. BUAT PROGRAM INSPECTOR
-      # ============================================
-      - name: Create inspector source
-        shell: pwsh
+      - name: Find DLL path
+        shell: bash
         run: |
+          DLL=$(find . -type f -iname "AssetsTools.NET.Texture.dll" | head -n 1)
 
-          @'
-          using System;
-          using System.IO;
-          using System.Linq;
-          using System.Reflection;
+          if [ -z "$DLL" ]; then
+            echo "❌ AssetsTools.NET.Texture.dll tidak ditemukan."
+            exit 1
+          fi
 
-          Console.WriteLine("======================================");
-          Console.WriteLine("ASSETSTOOLS.NET.TEXTURE INSPECTOR");
-          Console.WriteLine("======================================");
+          echo "DLL ditemukan:"
+          echo "$DLL"
 
-          string dllPath =
-              Path.GetFullPath("AssetsTools.NET.Texture.dll");
+          echo "DLL_PATH=$DLL" >> "$GITHUB_ENV"
 
-          Console.WriteLine();
-          Console.WriteLine("DLL:");
-          Console.WriteLine(dllPath);
-
-          Assembly asm;
-
-          try
-          {
-              asm = Assembly.LoadFrom(dllPath);
-          }
-          catch (Exception ex)
-          {
-              Console.WriteLine();
-              Console.WriteLine("FAILED TO LOAD DLL");
-              Console.WriteLine(ex);
-              return;
-          }
-
-          Console.WriteLine();
-          Console.WriteLine("ASSEMBLY:");
-          Console.WriteLine(asm.FullName);
-
-          Console.WriteLine();
-          Console.WriteLine("======================================");
-          Console.WriteLine("REFERENCES");
-          Console.WriteLine("======================================");
-
-          foreach (AssemblyName reference in asm.GetReferencedAssemblies()
-              .OrderBy(x => x.Name))
-          {
-              Console.WriteLine(
-                  $"{reference.Name} | {reference.Version}");
-          }
-
-          Console.WriteLine();
-          Console.WriteLine("======================================");
-          Console.WriteLine("ALL TYPES / METHODS");
-          Console.WriteLine("======================================");
-
-          Type[] types;
-
-          try
-          {
-              types = asm.GetTypes();
-          }
-          catch (ReflectionTypeLoadException ex)
-          {
-              Console.WriteLine();
-              Console.WriteLine("REFLECTION TYPE LOAD ERROR");
-
-              foreach (Exception? loaderException in ex.LoaderExceptions)
-              {
-                  if (loaderException != null)
-                      Console.WriteLine(loaderException);
-              }
-
-              types = ex.Types
-                  .Where(t => t != null)
-                  .Cast<Type>()
-                  .ToArray();
-          }
-
-          foreach (Type type in types.OrderBy(t => t.FullName))
-          {
-              Console.WriteLine();
-              Console.WriteLine("[TYPE]");
-              Console.WriteLine(type.FullName);
-
-              MethodInfo[] methods =
-                  type.GetMethods(
-                      BindingFlags.Public |
-                      BindingFlags.NonPublic |
-                      BindingFlags.Static |
-                      BindingFlags.Instance |
-                      BindingFlags.DeclaredOnly);
-
-              foreach (MethodInfo method in methods
-                  .OrderBy(m => m.Name))
-              {
-                  string parameters = string.Join(
-                      ", ",
-                      method.GetParameters()
-                          .Select(p =>
-                              $"{p.ParameterType.FullName} {p.Name}"));
-
-                  Console.WriteLine(
-                      $"  METHOD: {method.ReturnType.FullName} " +
-                      $"{method.Name}({parameters})");
-              }
-          }
-
-          Console.WriteLine();
-          Console.WriteLine("======================================");
-          Console.WriteLine("TEXTURE DECODER SEARCH");
-          Console.WriteLine("======================================");
-
-          string[] keywords =
-          {
-              "ASTC",
-              "PVRTC",
-              "PVR",
-              "ETC",
-              "ETC2",
-              "DXT",
-              "BC4",
-              "BC5",
-              "BC6",
-              "BC7",
-              "Crunch",
-              "Decode",
-              "Encode",
-              "TextureFile"
-          };
-
-          foreach (string keyword in keywords)
-          {
-              Console.WriteLine();
-              Console.WriteLine($"--- {keyword} ---");
-
-              foreach (Type type in types
-                  .Where(t =>
-                      (t.FullName ?? "")
-                      .Contains(
-                          keyword,
-                          StringComparison.OrdinalIgnoreCase))
-                  .OrderBy(t => t.FullName))
-              {
-                  Console.WriteLine(type.FullName);
-
-                  foreach (MethodInfo method in type
-                      .GetMethods(
-                          BindingFlags.Public |
-                          BindingFlags.NonPublic |
-                          BindingFlags.Static |
-                          BindingFlags.Instance |
-                          BindingFlags.DeclaredOnly)
-                      .Where(m =>
-                          m.Name.Contains(
-                              keyword,
-                              StringComparison.OrdinalIgnoreCase) ||
-                          m.Name.Contains(
-                              "Decode",
-                              StringComparison.OrdinalIgnoreCase) ||
-                          m.Name.Contains(
-                              "Encode",
-                              StringComparison.OrdinalIgnoreCase))
-                      .OrderBy(m => m.Name))
-                  {
-                      string parameters = string.Join(
-                          ", ",
-                          method.GetParameters()
-                              .Select(p =>
-                                  $"{p.ParameterType.FullName} {p.Name}"));
-
-                      Console.WriteLine(
-                          $"  {method.ReturnType.FullName} " +
-                          $"{method.Name}({parameters})");
-                  }
-              }
-          }
-
-          Console.WriteLine();
-          Console.WriteLine("======================================");
-          Console.WriteLine("INSPECTION COMPLETE");
-          Console.WriteLine("======================================");
-          '@ | Set-Content `
-              -Encoding UTF8 `
-              "DllInspectorProject/Program.cs"
-
-
-      # ============================================
-      # 6. BUILD INSPECTOR
-      # ============================================
-      - name: Build inspector
-        shell: pwsh
+      - name: Decompile DLL
+        shell: bash
         run: |
+          mkdir -p decompiled
 
-          Set-Location DllInspectorProject
+          ilspycmd \
+            -p \
+            -o decompiled \
+            "$DLL_PATH"
 
-          dotnet build `
-            -c Release
-
-
-      # ============================================
-      # 7. RUN INSPECTOR
-      # ============================================
-      - name: Run inspector
-        shell: pwsh
+      - name: Search TextureFormat
+        shell: bash
         run: |
+          echo "======================================"
+          echo "TEXTUREFORMAT"
+          echo "======================================"
 
-          Set-Location DllInspectorProject
+          grep -Rni \
+            -E "TextureFormat|ETC2A8|DecodeManaged|DecompressETC" \
+            decompiled \
+            | head -n 300 \
+            || true
 
-          dotnet run `
-            -c Release `
-            --no-build `
-            | Tee-Object ../texture-inspection.txt
-
-          Write-Host ""
-          Write-Host "======================================="
-          Write-Host "INSPECTION OUTPUT"
-          Write-Host "======================================="
-
-          Get-Content ../texture-inspection.txt
-
-
-      # ============================================
-      # 8. SEARCH IMPORTANT API
-      # ============================================
-      - name: Search decoder APIs
-        shell: pwsh
+      - name: Search enum value 34
+        shell: bash
         run: |
+          echo "======================================"
+          echo "KONTEKS NILAI 34"
+          echo "======================================"
 
-          Write-Host ""
-          Write-Host "======================================="
-          Write-Host "IMPORTANT DECODER API"
-          Write-Host "======================================="
+          grep -Rni \
+            -E "34|ETC_RGB4|ETC2" \
+            decompiled \
+            | head -n 300 \
+            || true
 
-          $keywords = @(
-              "ASTC",
-              "PVRTC",
-              "PVR",
-              "ETC",
-              "ETC2",
-              "DXT",
-              "BC4",
-              "BC5",
-              "BC6",
-              "BC7",
-              "Crunch",
-              "Decode",
-              "Encode",
-              "TextureFile"
-          )
-
-          foreach ($keyword in $keywords)
-          {
-              Write-Host ""
-              Write-Host "========== $keyword =========="
-
-              Select-String `
-                -Path texture-inspection.txt `
-                -Pattern $keyword `
-                -CaseSensitive:$false |
-                Select-Object -First 100 |
-                ForEach-Object {
-                    Write-Host $_.Line
-                }
-          }
-
-
-      # ============================================
-      # 9. UPLOAD HASIL INSPEKSI
-      # ============================================
-      - name: Upload inspection result
+      - name: Upload decompiled source
         uses: actions/upload-artifact@v4
         with:
-          name: Texture-DLL-Inspection
-          path: |
-            texture-inspection.txt
-            DllInspector/AssetsTools.NET.Texture.dll
-            DllInspector/AssetsTools.NET.dll
+          name: AssetsTools-NET-Texture-decompiled
+          path: decompiled/
