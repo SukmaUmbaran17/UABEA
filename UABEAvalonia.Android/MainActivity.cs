@@ -21,7 +21,10 @@ using IOPath = System.IO.Path;
 
 namespace UABEAvalonia.Android
 {
-    [Activity(Label = "UABEA Android", MainLauncher = true)]
+    [Activity(
+        Label = "UABEA Android",
+        MainLauncher = true
+    )]
     public class MainActivity : Activity
     {
         private const int PickFileRequestCode = 1001;
@@ -29,1201 +32,1015 @@ namespace UABEAvalonia.Android
 
         private TextView? status;
         private LinearLayout? assetList;
+
         private AssetsManager? assetsManager;
+
         private BundleFileInstance? currentBundle;
         private AssetsFileInstance? currentAssetsFile;
         private AssetFileInfo? currentAsset;
-        private bool showingSerializedFiles, showingAssetList, showingInspector;
-        private readonly HashSet<long> modifiedAssets = new HashSet<long>();
 
-        protected override void OnCreate(Bundle? savedInstanceState)
+        private bool showingSerializedFiles;
+        private bool showingAssetList;
+        private bool showingInspector;
+
+        private readonly HashSet<long> modifiedAssets =
+            new HashSet<long>();
+
+        // ============================================================
+        // ON CREATE
+        // ============================================================
+
+        protected override void OnCreate(
+            Bundle? savedInstanceState)
         {
             base.OnCreate(savedInstanceState);
+
             BuildMainInterface();
-            try { assetsManager = new AssetsManager(); SetStatus("AssetsTools.NET siap.\n\nTekan OPEN UNITY3D."); }
-            catch (Exception ex) { SetStatus("AssetsTools.NET gagal dimuat.\n\n" + ex.Message); }
+
+            try
+            {
+                assetsManager =
+                    new AssetsManager();
+
+                SetStatus(
+                    "AssetsTools.NET siap.\n\n" +
+                    "Tekan OPEN UNITY3D."
+                );
+            }
+            catch (Exception ex)
+            {
+                SetStatus(
+                    "AssetsTools.NET gagal dimuat.\n\n" +
+                    ex.Message
+                );
+            }
         }
+
+        // ============================================================
+        // MAIN UI
+        // ============================================================
 
         private void BuildMainInterface()
         {
-            var root = new LinearLayout(this) { Orientation = Orientation.Vertical };
-            root.SetPadding(30, 30, 30, 30);
-            var title = new TextView(this) { Text = "UABEA Android", TextSize = 24 };
-            var open = new Button(this) { Text = "OPEN UNITY3D" };
-            status = new TextView(this) { Text = "Menyiapkan UABEA Android...", TextSize = 14 };
-            root.AddView(title); root.AddView(open); root.AddView(status, new LinearLayout.LayoutParams(-1, 100));
-            assetList = new LinearLayout(this) { Orientation = Orientation.Vertical };
-            var scroll = new ScrollView(this); scroll.FillViewport = true; scroll.AddView(assetList);
-            var sp = new LinearLayout.LayoutParams(-1, 0) { Weight = 1 };
-            root.AddView(scroll, sp); SetContentView(root);
-            open.Click += delegate { OpenFilePicker(); };
+            LinearLayout root =
+                new LinearLayout(this);
+
+            root.Orientation =
+                Orientation.Vertical;
+
+            root.SetPadding(
+                30,
+                30,
+                30,
+                30);
+
+            TextView title =
+                new TextView(this);
+
+            title.Text =
+                "UABEA Android";
+
+            title.TextSize =
+                24;
+
+            Button openButton =
+                new Button(this);
+
+            openButton.Text =
+                "OPEN UNITY3D";
+
+            status =
+                new TextView(this);
+
+            status.TextSize =
+                14;
+
+            status.Text =
+                "Menyiapkan UABEA Android...";
+
+            LinearLayout.LayoutParams statusParams =
+                new LinearLayout.LayoutParams(
+                    -1,
+                    100);
+
+            root.AddView(title);
+            root.AddView(openButton);
+
+            root.AddView(
+                status,
+                statusParams);
+
+            assetList =
+                new LinearLayout(this);
+
+            assetList.Orientation =
+                Orientation.Vertical;
+
+            ScrollView scroll =
+                new ScrollView(this);
+
+            scroll.FillViewport =
+                true;
+
+            scroll.AddView(assetList);
+
+            LinearLayout.LayoutParams scrollParams =
+                new LinearLayout.LayoutParams(
+                    -1,
+                    0);
+
+            scrollParams.Weight =
+                1;
+
+            root.AddView(
+                scroll,
+                scrollParams);
+
+            SetContentView(root);
+
+            openButton.Click +=
+                delegate
+                {
+                    OpenFilePicker();
+                };
         }
+
+        // ============================================================
+        // FILE PICKER
+        // ============================================================
 
         private void OpenFilePicker()
         {
             try
             {
-                var intent = new Intent(Intent.ActionOpenDocument);
-                intent.AddCategory(Intent.CategoryOpenable); intent.SetType("*/*");
-                StartActivityForResult(intent, PickFileRequestCode);
-            }
-            catch (Exception ex) { SetStatus("File Picker gagal.\n\n" + ex.Message); }
-        }
+                Intent intent =
+                    new Intent(
+                        Intent.ActionOpenDocument);
 
-        protected override void OnActivityResult(int requestCode, Result resultCode, Intent? data)
-        {
-            base.OnActivityResult(requestCode, resultCode, data);
-            if (resultCode != Result.Ok || data?.Data == null)
-            {
-                if (requestCode == PickFileRequestCode) SetStatus("Pemilihan file dibatalkan.");
-                return;
-            }
-            try
-            {
-                if (requestCode == PickFileRequestCode) ReadUnityBundle(data.Data);
-                else if (requestCode == ExportTextureRequestCode) ExportCurrentTexture(data.Data);
-            }
-            catch (Exception ex) { SetStatus("Operasi gagal.\n\n" + ex.Message); }
-        }
+                intent.AddCategory(
+                    Intent.CategoryOpenable);
 
-        private string GetFileName(AndroidUri uri)
-        {
-            string name = "temp.unity3d";
-            using (var c = ContentResolver.Query(uri, null, null, null, null))
-            {
-                if (c != null)
-                {
-                    int i = c.GetColumnIndex(OpenableColumns.DisplayName);
-                    if (i >= 0 && c.MoveToFirst())
-                    {
-                        string? n = c.GetString(i);
-                        if (!string.IsNullOrWhiteSpace(n)) name = n;
-                    }
-                }
-            }
-            foreach (char ch in IOPath.GetInvalidFileNameChars()) name = name.Replace(ch, '_');
-            return name;
-        }
+                intent.SetType("*/*");
 
-        private string CopyToCache(AndroidUri uri, string fileName)
-        {
-            if (CacheDir == null) throw new Exception("CacheDir tidak tersedia.");
-            string path = IOPath.Combine(CacheDir.AbsolutePath, fileName);
-            using (Stream? input = ContentResolver.OpenInputStream(uri))
-            {
-                if (input == null) throw new Exception("Tidak dapat membaca file.");
-                using (FileStream output = File.Create(path)) input.CopyTo(output);
-            }
-            return path;
-        }
-
-        private void ReadUnityBundle(AndroidUri uri)
-        {
-            if (assetsManager == null) throw new Exception("AssetsManager tidak tersedia.");
-            SetStatus("Menyalin file...");
-            string name = GetFileName(uri);
-            string path = CopyToCache(uri, name);
-            var info = new FileInfo(path);
-            SetStatus("Membuka AssetBundle...");
-            BundleFileInstance bundle = assetsManager.LoadBundleFile(path);
-            if (bundle == null) throw new Exception("AssetBundle gagal dibuka.");
-            currentBundle = bundle; currentAssetsFile = null; currentAsset = null; modifiedAssets.Clear();
-            showingSerializedFiles = true; showingAssetList = false; showingInspector = false;
-            ShowSerializedFiles(info.Length, name);
-        }
-
-        private void ShowSerializedFiles(long fileSize, string fileName)
-        {
-            if (currentBundle == null || assetList == null) return;
-            ClearAssetList();
-            var header = new TextView(this) { TextSize = 16 };
-            header.Text = "ASSETBUNDLE BERHASIL DIBUKA!\n\nNama: " + fileName + "\nUkuran: " + fileSize.ToString("N0") + " bytes\n\n=== SERIALIZED FILE ===\n\nPilih file:";
-            assetList.AddView(header);
-            int index = 0;
-            foreach (var directory in currentBundle.file.BlockAndDirInfo.DirectoryInfos)
-            {
-                int selected = index++;
-                var b = new Button(this) { Text = index + ". " + directory.Name };
-                b.SetMinHeight(80); b.Click += delegate { LoadSerializedFile(selected); }; assetList.AddView(b);
-            }
-            SetStatus("Bundle berhasil dibuka.\nPilih SerializedFile.");
-        }
-
-        private void LoadSerializedFile(int index)
-        {
-            if (assetsManager == null || currentBundle == null) return;
-            try
-            {
-                SetStatus("Memuat SerializedFile...");
-                AssetsFileInstance f = assetsManager.LoadAssetsFileFromBundle(currentBundle, index, false);
-                if (f == null) throw new Exception("SerializedFile tidak dapat dimuat.");
-                currentAssetsFile = f; currentAsset = null; showingSerializedFiles = false; showingAssetList = true; showingInspector = false; ShowAssetList(f);
-            }
-            catch (Exception ex) { SetStatus("Gagal memuat SerializedFile.\n\n" + ex.Message); }
-        }
-
-        private void ShowAssetList(AssetsFileInstance f)
-        {
-            ClearAssetList(); if (assetList == null) return;
-            var back = new Button(this) { Text = "← KEMBALI KE SERIALIZED FILE" }; back.Click += delegate { ReturnToSerializedFiles(); }; assetList.AddView(back);
-            var h = new TextView(this) { TextSize = 16 };
-            h.Text = "=== ASSET LIST ===\n\nUnity Version: " + f.file.Metadata.UnityVersion + "\n\nPilih asset:"; assetList.AddView(h);
-            int number = 0;
-            foreach (var a in f.file.AssetInfos)
-            {
-                number++; AssetFileInfo current = a; string type = GetAssetTypeName(current.TypeId); string mark = modifiedAssets.Contains(current.PathId) ? " ✓ MODIFIED" : "";
-                var b = new Button(this) { Text = "ASSET #" + number + " | " + type + mark + "\nTypeID: " + current.TypeId + "\nPathID: " + current.PathId };
-                b.SetMinHeight(110); b.Click += delegate { OpenAssetInspector(f, current); }; assetList.AddView(b);
-            }
-            SetStatus("Asset List: " + number + " asset.\nPilih asset untuk membuka Inspector.");
-        }
-
-        private string GetAssetTypeName(int typeId)
-        {
-            try { var id = (AssetClassID)typeId; string n = id.ToString(); if (!string.IsNullOrEmpty(n) && n != typeId.ToString()) return n; } catch { }
-            return "Unknown";
-        }
-
-        private void OpenAssetInspector(AssetsFileInstance f, AssetFileInfo asset)
-        {
-            if (assetsManager == null) return;
-            try
-            {
-                SetStatus("Membaca asset...");
-                AssetTypeValueField baseField = assetsManager.GetBaseField(f, asset);
-                if (baseField == null) throw new Exception("GetBaseField mengembalikan NULL.");
-                currentAssetsFile = f; currentAsset = asset; ClearAssetList(); if (assetList == null) return;
-                var back = new Button(this) { Text = "← KEMBALI KE ASSET LIST" }; back.Click += delegate { ReturnToAssetList(); }; assetList.AddView(back);
-                string type = GetAssetTypeName(asset.TypeId); string mark = modifiedAssets.Contains(asset.PathId) ? "\n✓ MODIFIED" : "";
-                var header = new TextView(this) { TextSize = 16 };
-                header.Text = "=== ASSET INSPECTOR ===\n\nType: " + type + mark + "\n\nTypeID: " + asset.TypeId + "\n\nPathID: " + asset.PathId + "\n\nSemua field dibuka otomatis."; assetList.AddView(header);
-                if (asset.TypeId == 28) AddTextureButtons(f, asset);
-                var rootInfo = new TextView(this) { TextSize = 14 };
-                rootInfo.Text = "\nRoot: " + SafeFieldName(baseField) + "\nChild Count: " + GetChildCount(baseField) + "\n"; assetList.AddView(rootInfo);
-                AddFieldTree(baseField, 0); showingAssetList = true; showingInspector = true; SetStatus("Inspector: " + type + "\nSemua field dibuka.");
+                StartActivityForResult(
+                    intent,
+                    PickFileRequestCode);
             }
             catch (Exception ex)
             {
-                ClearAssetList(); if (assetList != null) { var b = new Button(this) { Text = "← KEMBALI KE ASSET LIST" }; b.Click += delegate { ReturnToAssetList(); }; assetList.AddView(b); }
-                SetStatus("Inspector gagal.\n\n" + ex.Message);
-            }
-        }
-
-        private void AddTextureButtons(AssetsFileInstance f, AssetFileInfo asset)
-        {
-            if (assetList == null) return;
-            var t = new TextView(this) { Text = "\n=== TEXTURE2D TOOLS ===\nTexture2D terdeteksi.", TextSize = 16 }; assetList.AddView(t);
-            var view = new Button(this) { Text = "🖼 VIEW TEXTURE" }; view.Click += delegate { ViewTexture(f, asset); }; assetList.AddView(view);
-            var export = new Button(this) { Text = "📤 EXPORT PNG" }; export.Click += delegate { StartTextureExport(); }; assetList.AddView(export);
-        }
-
-        // ============================================================
-        // TEXTURE VIEWER + ASTC DIAGNOSTIC
-        // ============================================================
-
-        private void ViewTexture(AssetsFileInstance f, AssetFileInfo asset)
-        {
-            if (assetsManager == null || assetList == null) return;
-
-            try
-            {
-                AssetTypeValueField baseField =
-                    assetsManager.GetBaseField(f, asset);
-
-                if (baseField == null)
-                    throw new Exception("GetBaseField() mengembalikan NULL.");
-
-                TextureFile tex =
-                    TextureFile.ReadTextureFile(baseField);
-
-                if (tex == null)
-                    throw new Exception("TextureFile gagal dibaca.");
-
-                int width = tex.m_Width;
-                int height = tex.m_Height;
-                TextureFormat format = (TextureFormat)tex.m_TextureFormat;
-
-                if (width <= 0 || height <= 0)
-                    throw new Exception(
-                        "Ukuran texture tidak valid: " + width + "x" + height);
-
-                byte[] data;
-                string dataSource;
-
-                // ------------------------------------------------------------
-                // PENTING:
-                // Untuk texture streamed (m_StreamData.size > 0), jangan
-                // memakai GetTextureData() sebagai sumber ASTC mentah.
-                // Data asli berada di .resS pada offset/size m_StreamData.
-                // ------------------------------------------------------------
-                byte[]? streamData =
-                    ReadTextureStreamData(
-                        f,
-                        baseField,
-                        out dataSource);
-
-                if (streamData != null && streamData.Length > 0)
-                {
-                    data = streamData;
-                }
-                else
-                {
-                    dataSource = "m_TextureData / GetTextureData()";
-                    data = tex.GetTextureData(f);
-                }
-
-                if (data == null || data.Length == 0)
-                    throw new Exception(
-                        "Data texture kosong.\n\nSumber: " + dataSource);
-
-                if (IsAstcFormat(format))
-                {
-                    ShowAstcDiagnostic(
-                        baseField,
-                        tex,
-                        data,
-                        format,
-                        f,
-                        asset,
-                        dataSource);
-                    return;
-                }
-
-                int expectedMip0;
-                string mipNote;
-                data = PrepareMip0Data(
-                    data,
-                    format,
-                    width,
-                    height,
-                    dataSource,
-                    out expectedMip0,
-                    out mipNote);
-
-                byte[] bgra =
-                    TextureFile.DecodeManaged(
-                        data,
-                        format,
-                        width,
-                        height,
-                        true);
-
-                if (bgra == null ||
-                    bgra.Length < width * height * 4)
-                {
-                    throw new Exception(
-                        "DecodeManaged() menghasilkan data tidak valid.\n" +
-                        "Format: " + format +
-                        "\nSumber: " + dataSource +
-                        "\nMip0: " + expectedMip0 +
-                        " bytes\nActual input: " + data.Length + " bytes\n" +
-                        mipNote);
-                }
-
-                Bitmap bitmap =
-                    CreateBitmapFromBgra(
-                        bgra,
-                        width,
-                        height);
-
-                ShowTexturePreview(
-                    bitmap,
-                    width,
-                    height,
-                    format,
-                    data.Length,
-                    bgra.Length,
-                    f,
-                    asset);
-
                 SetStatus(
-                    "✓ Texture berhasil didecode.\n" +
-                    width + "x" + height +
-                    " / " + format +
-                    "\nSumber: " + dataSource);
+                    "File Picker gagal.\n\n" +
+                    ex.Message);
+            }
+        }
+
+        protected override void OnActivityResult(
+            int requestCode,
+            Result resultCode,
+            Intent? data)
+        {
+            base.OnActivityResult(
+                requestCode,
+                resultCode,
+                data);
+
+            if (resultCode != Result.Ok ||
+                data?.Data == null)
+            {
+                if (requestCode ==
+                    PickFileRequestCode)
+                {
+                    SetStatus(
+                        "Pemilihan file dibatalkan.");
+                }
+
+                return;
+            }
+
+            try
+            {
+                if (requestCode ==
+                    PickFileRequestCode)
+                {
+                    ReadUnityBundle(
+                        data.Data);
+                }
+                else if (requestCode ==
+                    ExportTextureRequestCode)
+                {
+                    ExportCurrentTexture(
+                        data.Data);
+                }
             }
             catch (Exception ex)
             {
-                ShowTextureError(asset, ex);
+                SetStatus(
+                    "Operasi gagal.\n\n" +
+                    ex.Message);
             }
         }
 
         // ============================================================
-        // EXACT MIP 0 DATA
-        // ============================================================
-        // Unity texture data can contain more than one mip level, or
-        // padding/data that is not part of mip 0. The decoder must receive
-        // exactly the bytes needed by mip 0 whenever we know that size.
-        // This is especially important for ETC/ETC2/ASTC/BC/DXT/PVRTC.
+        // FILE NAME
         // ============================================================
 
-        private int GetMip0Size(TextureFormat format, int width, int height)
+        private string GetFileName(
+            AndroidUri uri)
         {
-            if (width <= 0 || height <= 0)
-                return 0;
+            string fileName =
+                "temp.unity3d";
 
-            string n = format.ToString().ToUpperInvariant();
-
-            // ASTC: one 16-byte block per compressed block.
-            if (n.Contains("ASTC"))
+            using (
+                var cursor =
+                    ContentResolver.Query(
+                        uri,
+                        null,
+                        null,
+                        null,
+                        null))
             {
-                GetAstcBlockSize(format, out int bw, out int bh);
-                if (bw <= 0 || bh <= 0)
-                    return 0;
-
-                long bx = (width + bw - 1L) / bw;
-                long by = (height + bh - 1L) / bh;
-                long size = bx * by * 16L;
-                return CheckedSize(size, "ASTC mip 0");
-            }
-
-            // DXT / BC: 4x4 blocks.
-            // DXT1/BC1 = 8 bytes per block.
-            // DXT3/DXT5/BC2/BC3 = 16 bytes per block.
-            if (n.Contains("DXT1") || n.Contains("BC1"))
-                return GetBlockCompressedSize(width, height, 4, 4, 8);
-
-            if (n.Contains("DXT3") || n.Contains("DXT5") ||
-                n.Contains("BC2") || n.Contains("BC3") ||
-                n.Contains("BC4") || n.Contains("BC5") ||
-                n.Contains("BC6") || n.Contains("BC7"))
-                return GetBlockCompressedSize(width, height, 4, 4, 16);
-
-            // ETC1 / ETC_RGB4 = 8 bytes per 4x4 block.
-            if (n.Contains("ETC_RGB4") || n == "ETC_RGB4")
-                return GetBlockCompressedSize(width, height, 4, 4, 8);
-
-            // ETC2 RGB and ETC2 RGBA1 use 8-byte blocks.
-            if (n.Contains("ETC2_RGB") || n.Contains("ETC2_RGBA1"))
-                return GetBlockCompressedSize(width, height, 4, 4, 8);
-
-            // ETC2 RGBA8 uses two 8-byte blocks = 16 bytes per 4x4 block.
-            if (n.Contains("ETC2_RGBA8"))
-                return GetBlockCompressedSize(width, height, 4, 4, 16);
-
-            // EAC R/RG formats are also block compressed.
-            if (n.Contains("EAC_R") || n.Contains("EAC_R_SIGNED"))
-                return GetBlockCompressedSize(width, height, 4, 4, 8);
-
-            if (n.Contains("EAC_RG") || n.Contains("EAC_RG_SIGNED"))
-                return GetBlockCompressedSize(width, height, 4, 4, 16);
-
-            // PVRTC uses a minimum footprint of 2x2 blocks.
-            // PVRTC 4bpp = 4 bits/pixel, PVRTC 2bpp = 2 bits/pixel.
-            if (n.Contains("PVRTC_RGB4") || n.Contains("PVRTC_RGBA4"))
-            {
-                long pixels = (long)Math.Max(width, 8) * Math.Max(height, 8);
-                long size = (pixels + 1L) / 2L;
-                return CheckedSize(size, "PVRTC 4bpp mip 0");
-            }
-
-            if (n.Contains("PVRTC_RGB2") || n.Contains("PVRTC_RGBA2"))
-            {
-                long pixels = (long)Math.Max(width, 16) * Math.Max(height, 8);
-                long size = (pixels + 3L) / 4L;
-                return CheckedSize(size, "PVRTC 2bpp mip 0");
-            }
-
-            // Common uncompressed Unity formats.
-            int bytesPerPixel = GetUncompressedBytesPerPixel(n);
-            if (bytesPerPixel > 0)
-            {
-                long size = (long)width * height * bytesPerPixel;
-                return CheckedSize(size, "uncompressed mip 0");
-            }
-
-            return 0;
-        }
-
-        private int GetBlockCompressedSize(
-            int width,
-            int height,
-            int bw,
-            int bh,
-            int bytesPerBlock)
-        {
-            long blocksX = (width + bw - 1L) / bw;
-            long blocksY = (height + bh - 1L) / bh;
-            long size = blocksX * blocksY * bytesPerBlock;
-            return CheckedSize(size, "block compressed mip 0");
-        }
-
-        private int GetUncompressedBytesPerPixel(string n)
-        {
-            if (n.Contains("RGBA32") || n.Contains("BGRA32") || n == "ARGB32")
-                return 4;
-
-            if (n == "RGB24")
-                return 3;
-
-            if (n.Contains("RGB565") || n.Contains("ARGB4444") ||
-                n.Contains("RGBA4444"))
-                return 2;
-
-            if (n == "ALPHA8" || n == "R8")
-                return 1;
-
-            if (n.Contains("R16") || n.Contains("RHALF") ||
-                n.Contains("RG16") || n.Contains("RGHALF"))
-                return 2;
-
-            if (n.Contains("RFloat".ToUpperInvariant()) ||
-                n == "R32" || n.Contains("R32_SFLOAT"))
-                return 4;
-
-            if (n.Contains("RGBAHALF") || n.Contains("RGBAFLOAT"))
-                return 8;
-
-            return 0;
-        }
-
-        private int CheckedSize(long size, string label)
-        {
-            if (size <= 0 || size > int.MaxValue)
-                throw new Exception("Ukuran " + label + " tidak valid: " + size);
-            return (int)size;
-        }
-
-        private byte[] PrepareMip0Data(
-            byte[] data,
-            TextureFormat format,
-            int width,
-            int height,
-            string source,
-            out int expectedSize,
-            out string note)
-        {
-            expectedSize = GetMip0Size(format, width, height);
-
-            if (expectedSize <= 0)
-            {
-                note = "Ukuran mip 0 tidak dapat dihitung otomatis; data dipakai apa adanya.";
-                return data;
-            }
-
-            if (data.Length < expectedSize)
-            {
-                throw new Exception(
-                    "Data texture kurang untuk mip 0.\n" +
-                    "Format: " + format + "\n" +
-                    "Size: " + width + "x" + height + "\n" +
-                    "Expected mip0: " + expectedSize + " bytes\n" +
-                    "Actual: " + data.Length + " bytes\n" +
-                    "Sumber: " + source);
-            }
-
-            if (data.Length == expectedSize)
-            {
-                note = "Data sudah tepat sebesar mip 0.";
-                return data;
-            }
-
-            byte[] mip0 = new byte[expectedSize];
-            Buffer.BlockCopy(data, 0, mip0, 0, expectedSize);
-
-            note =
-                "Data dipotong ke mip 0: " +
-                data.Length + " → " + expectedSize + " bytes.";
-
-            return mip0;
-        }
-
-        private bool IsAstcFormat(TextureFormat format) =>
-            format.ToString().IndexOf(
-                "ASTC",
-                StringComparison.OrdinalIgnoreCase) >= 0;
-
-        private void GetAstcBlockSize(
-            TextureFormat format,
-            out int bw,
-            out int bh)
-        {
-            bw = bh = 0;
-
-            string n =
-                format.ToString().ToUpperInvariant();
-
-            string[] sizes =
-            {
-                "4X4", "5X4", "5X5", "6X5", "6X6",
-                "8X5", "8X6", "8X8", "10X5", "10X6",
-                "10X8", "10X10", "12X10", "12X12"
-            };
-
-            foreach (string size in sizes)
-            {
-                if (!n.Contains(size))
-                    continue;
-
-                string[] parts =
-                    size.Split('X');
-
-                bw = int.Parse(parts[0]);
-                bh = int.Parse(parts[1]);
-                return;
-            }
-        }
-
-        private int GetAstcMipSize(
-            int width,
-            int height,
-            int bw,
-            int bh)
-        {
-            if (bw <= 0 || bh <= 0)
-                return 0;
-
-            long blocksX =
-                (width + bw - 1) / bw;
-
-            long blocksY =
-                (height + bh - 1) / bh;
-
-            long size =
-                blocksX * blocksY * 16L;
-
-            if (size > int.MaxValue)
-                throw new Exception(
-                    "Ukuran ASTC terlalu besar.");
-
-            return (int)size;
-        }
-
-        private AssetTypeValueField? FindField(
-            AssetTypeValueField root,
-            string name)
-        {
-            if (root == null)
-                return null;
-
-            if (string.Equals(
-                SafeFieldName(root),
-                name,
-                StringComparison.Ordinal))
-            {
-                return root;
-            }
-
-            for (int i = 0;
-                 i < GetChildCount(root);
-                 i++)
-            {
-                AssetTypeValueField? child =
-                    GetChild(root, i);
-
-                if (child == null)
-                    continue;
-
-                AssetTypeValueField? result =
-                    FindField(child, name);
-
-                if (result != null)
-                    return result;
-            }
-
-            return null;
-        }
-
-        private bool TryGetFieldLong(
-            AssetTypeValueField? field,
-            out long value)
-        {
-            value = 0;
-
-            if (field == null)
-                return false;
-
-            try
-            {
-                value = field.Value.AsLong;
-                return true;
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                value = (long)field.Value.AsULong;
-                return true;
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                value = field.Value.AsInt;
-                return true;
-            }
-            catch
-            {
-            }
-
-            try
-            {
-                value = field.Value.AsUInt;
-                return true;
-            }
-            catch
-            {
-            }
-
-            string text =
-                GetDisplayValue(field);
-
-            if (long.TryParse(
-                text,
-                NumberStyles.Integer,
-                CultureInfo.InvariantCulture,
-                out value))
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-        private string GetTextureStreamPath(
-            AssetTypeValueField baseField)
-        {
-            AssetTypeValueField? stream =
-                FindField(baseField, "m_StreamData");
-
-            if (stream == null)
-                return "";
-
-            return GetDisplayValue(
-                FindField(stream, "path"));
-        }
-
-        private byte[]? ReadTextureStreamData(
-            AssetsFileInstance assetsFile,
-            AssetTypeValueField baseField,
-            out string source)
-        {
-            source = "";
-
-            AssetTypeValueField? stream =
-                FindField(baseField, "m_StreamData");
-
-            if (stream == null)
-                return null;
-
-            AssetTypeValueField? offsetField =
-                FindField(stream, "offset");
-
-            AssetTypeValueField? sizeField =
-                FindField(stream, "size");
-
-            AssetTypeValueField? pathField =
-                FindField(stream, "path");
-
-            if (!TryGetFieldLong(offsetField, out long offset) ||
-                !TryGetFieldLong(sizeField, out long size))
-            {
-                return null;
-            }
-
-            string path =
-                GetDisplayValue(pathField);
-
-            if (size <= 0)
-                return null;
-
-            if (offset < 0)
-                throw new Exception(
-                    "m_StreamData.offset tidak valid: " + offset);
-
-            if (size > int.MaxValue)
-                throw new Exception(
-                    "m_StreamData.size terlalu besar: " + size);
-
-            // ------------------------------------------------------------
-            // CASE 1: texture berada di dalam AssetBundle.
-            // Contoh path:
-            // archive:/CAB-xxxx/CAB-xxxx.resS
-            // ------------------------------------------------------------
-            if (path.StartsWith(
-                "archive:/",
-                StringComparison.OrdinalIgnoreCase))
-            {
-                BundleFileInstance? bundle =
-                    assetsFile.parentBundle ?? currentBundle;
-
-                if (bundle == null)
+                if (cursor != null)
                 {
-                    throw new Exception(
-                        "Texture memakai archive:/ tetapi parent bundle tidak ditemukan.");
-                }
+                    int index =
+                        cursor.GetColumnIndex(
+                            OpenableColumns.DisplayName);
 
-                string archivePath =
-                    path.Substring("archive:/".Length)
-                        .Replace('\\', '/');
-
-                int slash =
-                    archivePath.LastIndexOf('/');
-
-                string entryName =
-                    slash >= 0
-                    ? archivePath.Substring(slash + 1)
-                    : archivePath;
-
-                int index =
-                    bundle.file.GetFileIndex(entryName);
-
-                // Beberapa bundle menyimpan nama entry dengan variasi
-                // archive path. Kalau exact match gagal, cari berdasarkan
-                // nama file terakhir / suffix.
-                if (index < 0)
-                {
-                    for (int i = 0;
-                         i < bundle.file.BlockAndDirInfo.DirectoryInfos.Count();
-                         i++)
+                    if (index >= 0 &&
+                        cursor.MoveToFirst())
                     {
-                        string dirName =
-                            bundle.file.BlockAndDirInfo.DirectoryInfos[i].Name;
+                        string? detected =
+                            cursor.GetString(index);
 
-                        if (string.Equals(
-                            dirName,
-                            entryName,
-                            StringComparison.OrdinalIgnoreCase) ||
-                            dirName.EndsWith(
-                                entryName,
-                                StringComparison.OrdinalIgnoreCase))
+                        if (!string.IsNullOrWhiteSpace(
+                            detected))
                         {
-                            index = i;
-                            break;
+                            fileName =
+                                detected;
                         }
                     }
                 }
-
-                if (index < 0)
-                {
-                    throw new Exception(
-                        "Entry .resS tidak ditemukan di AssetBundle.\n\n" +
-                        "Path:\n" + path +
-                        "\n\nEntry yang dicari:\n" + entryName);
-                }
-
-                byte[] entryData =
-                    BundleHelper.LoadAssetDataFromBundle(
-                        bundle.file,
-                        index);
-
-                if (entryData == null ||
-                    entryData.Length == 0)
-                {
-                    throw new Exception(
-                        "Entry .resS ditemukan tetapi datanya kosong.\n" +
-                        "Entry: " + entryName);
-                }
-
-                if (offset + size > entryData.LongLength)
-                {
-                    throw new Exception(
-                        "m_StreamData berada di luar ukuran entry .resS.\n\n" +
-                        "Offset: " + offset +
-                        "\nSize: " + size +
-                        "\nEntry Size: " + entryData.Length);
-                }
-
-                byte[] result =
-                    new byte[(int)size];
-
-                Buffer.BlockCopy(
-                    entryData,
-                    (int)offset,
-                    result,
-                    0,
-                    (int)size);
-
-                source =
-                    "m_StreamData → AssetBundle .resS\n" +
-                    entryName +
-                    "\noffset=" + offset +
-                    ", size=" + size;
-
-                return result;
             }
 
-            // ------------------------------------------------------------
-            // CASE 2: external .resS berada di samping .assets.
-            // ------------------------------------------------------------
-            string cleanPath =
-                path.Replace('\\', IOPath.DirectorySeparatorChar)
-                    .TrimStart(
-                        IOPath.DirectorySeparatorChar,
-                        IOPath.AltDirectorySeparatorChar);
-
-            string? baseDirectory =
-                IOPath.GetDirectoryName(assetsFile.path);
-
-            if (string.IsNullOrEmpty(baseDirectory))
-                baseDirectory = CacheDir?.AbsolutePath;
-
-            if (!string.IsNullOrEmpty(baseDirectory))
+            foreach (
+                char invalidChar
+                in IOPath.GetInvalidFileNameChars())
             {
-                string externalPath =
-                    IOPath.Combine(
-                        baseDirectory,
-                        cleanPath);
-
-                if (File.Exists(externalPath))
-                {
-                    using FileStream fs =
-                        File.OpenRead(externalPath);
-
-                    if (offset + size > fs.Length)
-                    {
-                        throw new Exception(
-                            "m_StreamData berada di luar file .resS.\n\n" +
-                            "File: " + externalPath +
-                            "\nOffset: " + offset +
-                            "\nSize: " + size +
-                            "\nFile Size: " + fs.Length);
-                    }
-
-                    fs.Position = offset;
-
-                    byte[] result =
-                        new byte[(int)size];
-
-                    int total = 0;
-                    while (total < result.Length)
-                    {
-                        int read =
-                            fs.Read(
-                                result,
-                                total,
-                                result.Length - total);
-
-                        if (read <= 0)
-                            break;
-
-                        total += read;
-                    }
-
-                    if (total != result.Length)
-                        throw new Exception(
-                            "Gagal membaca seluruh data .resS.\n" +
-                            "Expected: " + result.Length +
-                            "\nActual: " + total);
-
-                    source =
-                        "m_StreamData → external .resS\n" +
-                        externalPath +
-                        "\noffset=" + offset +
-                        ", size=" + size;
-
-                    return result;
-                }
+                fileName =
+                    fileName.Replace(
+                        invalidChar,
+                        '_');
             }
 
-            return null;
+            return fileName;
         }
 
-        private string GetTextureStorageInfo(
-            AssetTypeValueField baseField)
+        // ============================================================
+        // COPY TO CACHE
+        // ============================================================
+
+        private string CopyToCache(
+            AndroidUri uri,
+            string fileName)
         {
-            string s = "";
+            if (CacheDir == null)
+            {
+                throw new Exception(
+                    "CacheDir tidak tersedia.");
+            }
+
+            string path =
+                IOPath.Combine(
+                    CacheDir.AbsolutePath,
+                    fileName);
+
+            using (
+                Stream? input =
+                    ContentResolver.OpenInputStream(uri))
+            {
+                if (input == null)
+                {
+                    throw new Exception(
+                        "Tidak dapat membaca file.");
+                }
+
+                using (
+                    FileStream output =
+                        File.Create(path))
+                {
+                    input.CopyTo(output);
+                }
+            }
+
+            return path;
+        }
+
+        // ============================================================
+        // OPEN UNITY BUNDLE
+        // ============================================================
+
+        private void ReadUnityBundle(
+            AndroidUri uri)
+        {
+            if (assetsManager == null)
+            {
+                throw new Exception(
+                    "AssetsManager tidak tersedia.");
+            }
+
+            SetStatus(
+                "Menyalin file...");
+
+            string fileName =
+                GetFileName(uri);
+
+            string cachePath =
+                CopyToCache(
+                    uri,
+                    fileName);
+
+            FileInfo info =
+                new FileInfo(cachePath);
+
+            SetStatus(
+                "Membuka AssetBundle...");
+
+            BundleFileInstance bundle =
+                assetsManager.LoadBundleFile(
+                    cachePath);
+
+            if (bundle == null)
+            {
+                throw new Exception(
+                    "AssetBundle gagal dibuka.");
+            }
+
+            currentBundle =
+                bundle;
+
+            currentAssetsFile =
+                null;
+
+            currentAsset =
+                null;
+
+            modifiedAssets.Clear();
+
+            showingSerializedFiles =
+                true;
+
+            showingAssetList =
+                false;
+
+            showingInspector =
+                false;
+
+            ShowSerializedFiles(
+                info.Length,
+                fileName);
+        }
+
+        // ============================================================
+        // SERIALIZED FILES
+        // ============================================================
+
+        private void ShowSerializedFiles(
+            long fileSize,
+            string fileName)
+        {
+            if (currentBundle == null ||
+                assetList == null)
+            {
+                return;
+            }
+
+            ClearAssetList();
+
+            TextView header =
+                new TextView(this);
+
+            header.Text =
+                "ASSETBUNDLE BERHASIL DIBUKA!\n\n" +
+                "Nama: " +
+                fileName +
+                "\nUkuran: " +
+                fileSize.ToString("N0") +
+                " bytes\n\n" +
+                "=== SERIALIZED FILE ===\n\n" +
+                "Pilih file:";
+
+            header.TextSize =
+                16;
+
+            assetList.AddView(header);
+
+            var directories =
+                currentBundle
+                    .file
+                    .BlockAndDirInfo
+                    .DirectoryInfos;
+
+            int index = 0;
+
+            // FIX:
+            // DirectoryInfos.Count adalah method.
+            // Gunakan Count().
+            int directoryCount =
+                directories.Count();
+
+            for (
+                int i = 0;
+                i < directoryCount;
+                i++)
+            {
+                var directory =
+                    directories[i];
+
+                int currentIndex =
+                    i;
+
+                index++;
+
+                Button button =
+                    new Button(this);
+
+                button.Text =
+                    index +
+                    ". " +
+                    directory.Name;
+
+                button.SetMinHeight(
+                    80);
+
+                button.Click +=
+                    delegate
+                    {
+                        LoadSerializedFile(
+                            currentIndex);
+                    };
+
+                assetList.AddView(
+                    button);
+            }
+
+            SetStatus(
+                "Bundle berhasil dibuka.\n" +
+                "Pilih SerializedFile."
+            );
+        }
+
+        private void LoadSerializedFile(
+            int index)
+        {
+            if (assetsManager == null ||
+                currentBundle == null)
+            {
+                return;
+            }
 
             try
             {
-                AssetTypeValueField? stream =
-                    FindField(baseField, "m_StreamData");
+                SetStatus(
+                    "Memuat SerializedFile...");
 
-                s += "\n\n=== m_StreamData ===\n";
+                AssetsFileInstance assetsFile =
+                    assetsManager
+                        .LoadAssetsFileFromBundle(
+                            currentBundle,
+                            index,
+                            false);
 
-                if (stream == null)
+                if (assetsFile == null)
                 {
-                    s += "Field tidak ditemukan.\n";
+                    throw new Exception(
+                        "SerializedFile tidak dapat dimuat.");
                 }
-                else
-                {
-                    s += "offset : " +
-                         DisplayOrUnknown(
-                             FindField(stream, "offset")) +
-                         "\n";
 
-                    s += "size   : " +
-                         DisplayOrUnknown(
-                             FindField(stream, "size")) +
-                         "\n";
+                currentAssetsFile =
+                    assetsFile;
 
-                    s += "path   : " +
-                         DisplayOrUnknown(
-                             FindField(stream, "path")) +
-                         "\n";
-                }
+                currentAsset =
+                    null;
+
+                showingSerializedFiles =
+                    false;
+
+                showingAssetList =
+                    true;
+
+                showingInspector =
+                    false;
+
+                ShowAssetList(
+                    assetsFile);
             }
             catch (Exception ex)
             {
-                s += "\nm_StreamData error: " +
-                     ex.Message +
-                     "\n";
+                SetStatus(
+                    "Gagal memuat SerializedFile.\n\n" +
+                    ex.Message);
             }
-
-            s +=
-                "\nm_CompleteImageSize: " +
-                DisplayOrUnknown(
-                    FindField(baseField, "m_CompleteImageSize"));
-
-            s +=
-                "\n\nm_TextureData: " +
-                (FindField(baseField, "m_TextureData") == null
-                    ? "tidak ditemukan"
-                    : "ditemukan");
-
-            return s;
         }
 
-        private string DisplayOrUnknown(
-            AssetTypeValueField? field)
+        // ============================================================
+        // ASSET LIST
+        // ============================================================
+
+        private void ShowAssetList(
+            AssetsFileInstance assetsFile)
         {
-            if (field == null)
-                return "(tidak ditemukan)";
+            ClearAssetList();
 
-            string value =
-                GetDisplayValue(field);
+            if (assetList == null)
+                return;
 
-            return string.IsNullOrEmpty(value)
-                ? "(kosong)"
-                : value;
-        }
+            Button back =
+                new Button(this);
 
-        private string FirstBytes(
-            byte[] data,
-            int max)
-        {
-            int count =
-                Math.Min(data.Length, max);
+            back.Text =
+                "← KEMBALI KE SERIALIZED FILE";
 
-            var parts =
-                new List<string>();
+            back.Click +=
+                delegate
+                {
+                    ReturnToSerializedFiles();
+                };
 
-            for (int i = 0; i < count; i++)
+            assetList.AddView(back);
+
+            TextView header =
+                new TextView(this);
+
+            header.Text =
+                "=== ASSET LIST ===\n\n" +
+                "Unity Version: " +
+                assetsFile.file.Metadata.UnityVersion +
+                "\n\nPilih asset:";
+
+            header.TextSize =
+                16;
+
+            assetList.AddView(header);
+
+            int number = 0;
+
+            foreach (
+                var asset
+                in assetsFile.file.AssetInfos)
             {
-                parts.Add(
-                    data[i].ToString(
-                        "X2",
-                        CultureInfo.InvariantCulture) +
-                    (((i + 1) % 16 == 0)
-                        ? "\n"
-                        : " "));
+                number++;
+
+                AssetFileInfo current =
+                    asset;
+
+                string typeName =
+                    GetAssetTypeName(
+                        current.TypeId);
+
+                string mark =
+                    modifiedAssets.Contains(
+                        current.PathId)
+                    ? " ✓ MODIFIED"
+                    : "";
+
+                Button button =
+                    new Button(this);
+
+                button.Text =
+                    "ASSET #" +
+                    number +
+                    " | " +
+                    typeName +
+                    mark +
+                    "\nTypeID: " +
+                    current.TypeId +
+                    "\nPathID: " +
+                    current.PathId;
+
+                button.SetMinHeight(
+                    110);
+
+                button.Click +=
+                    delegate
+                    {
+                        OpenAssetInspector(
+                            assetsFile,
+                            current);
+                    };
+
+                assetList.AddView(button);
             }
 
-            return string.Join("", parts).Trim();
+            SetStatus(
+                "Asset List: " +
+                number +
+                " asset.\n" +
+                "Pilih asset untuk membuka Inspector."
+            );
         }
 
-        private void ShowAstcDiagnostic(
-            AssetTypeValueField baseField,
-            TextureFile tex,
-            byte[] data,
-            TextureFormat format,
-            AssetsFileInstance f,
-            AssetFileInfo asset,
-            string dataSource)
+        // ============================================================
+        // ASSET TYPE
+        // ============================================================
+
+        private string GetAssetTypeName(
+            int typeId)
+        {
+            try
+            {
+                AssetClassID classId =
+                    (AssetClassID)typeId;
+
+                string name =
+                    classId.ToString();
+
+                if (!string.IsNullOrEmpty(name) &&
+                    name != typeId.ToString())
+                {
+                    return name;
+                }
+            }
+            catch
+            {
+            }
+
+            return "Unknown";
+        }
+
+        // ============================================================
+        // INSPECTOR
+        // ============================================================
+
+        private void OpenAssetInspector(
+            AssetsFileInstance assetsFile,
+            AssetFileInfo asset)
+        {
+            if (assetsManager == null)
+                return;
+
+            try
+            {
+                SetStatus(
+                    "Membaca asset...");
+
+                AssetTypeValueField baseField =
+                    assetsManager.GetBaseField(
+                        assetsFile,
+                        asset);
+
+                if (baseField == null)
+                {
+                    throw new Exception(
+                        "GetBaseField mengembalikan NULL.");
+                }
+
+                currentAssetsFile =
+                    assetsFile;
+
+                currentAsset =
+                    asset;
+
+                ClearAssetList();
+
+                if (assetList == null)
+                    return;
+
+                Button back =
+                    new Button(this);
+
+                back.Text =
+                    "← KEMBALI KE ASSET LIST";
+
+                back.Click +=
+                    delegate
+                    {
+                        ReturnToAssetList();
+                    };
+
+                assetList.AddView(back);
+
+                string typeName =
+                    GetAssetTypeName(
+                        asset.TypeId);
+
+                string mark =
+                    modifiedAssets.Contains(
+                        asset.PathId)
+                    ? "\n✓ MODIFIED"
+                    : "";
+
+                TextView header =
+                    new TextView(this);
+
+                header.Text =
+                    "=== ASSET INSPECTOR ===\n\n" +
+                    "Type: " +
+                    typeName +
+                    mark +
+                    "\n\nTypeID: " +
+                    asset.TypeId +
+                    "\n\nPathID: " +
+                    asset.PathId +
+                    "\n\nSemua field dibuka otomatis.";
+
+                header.TextSize =
+                    16;
+
+                assetList.AddView(header);
+
+                // Texture2D = TypeID 28
+                if (asset.TypeId == 28)
+                {
+                    AddTextureButtons(
+                        assetsFile,
+                        asset);
+                }
+
+                int rootChildren =
+                    GetChildCount(
+                        baseField);
+
+                TextView rootInfo =
+                    new TextView(this);
+
+                rootInfo.Text =
+                    "\nRoot: " +
+                    SafeFieldName(baseField) +
+                    "\nChild Count: " +
+                    rootChildren +
+                    "\n";
+
+                rootInfo.TextSize =
+                    14;
+
+                assetList.AddView(rootInfo);
+
+                AddFieldTree(
+                    baseField,
+                    0);
+
+                showingAssetList =
+                    true;
+
+                showingInspector =
+                    true;
+
+                SetStatus(
+                    "Inspector: " +
+                    typeName +
+                    "\nSemua field dibuka."
+                );
+            }
+            catch (Exception ex)
+            {
+                ClearAssetList();
+
+                if (assetList != null)
+                {
+                    Button back =
+                        new Button(this);
+
+                    back.Text =
+                        "← KEMBALI KE ASSET LIST";
+
+                    back.Click +=
+                        delegate
+                        {
+                            ReturnToAssetList();
+                        };
+
+                    assetList.AddView(back);
+                }
+
+                SetStatus(
+                    "Inspector gagal.\n\n" +
+                    ex.Message);
+            }
+        }
+
+        // ============================================================
+        // TEXTURE BUTTONS
+        // ============================================================
+
+        private void AddTextureButtons(
+            AssetsFileInstance assetsFile,
+            AssetFileInfo asset)
         {
             if (assetList == null)
                 return;
 
-            GetAstcBlockSize(
-                format,
-                out int bw,
-                out int bh);
+            TextView title =
+                new TextView(this);
 
-            int bx =
-                bw > 0
-                ? (tex.m_Width + bw - 1) / bw
-                : 0;
+            title.Text =
+                "\n=== TEXTURE2D TOOLS ===\n" +
+                "Texture2D terdeteksi.";
 
-            int by =
-                bh > 0
-                ? (tex.m_Height + bh - 1) / bh
-                : 0;
+            title.TextSize =
+                16;
 
-            int expected =
-                GetAstcMipSize(
-                    tex.m_Width,
-                    tex.m_Height,
-                    bw,
-                    bh);
-
-            ClearAssetList();
-
-            var title =
-                new TextView(this)
-                {
-                    Text = "=== ASTC DIAGNOSTIC ===",
-                    TextSize = 20
-                };
-
-            title.SetPadding(10, 20, 10, 20);
             assetList.AddView(title);
 
-            var info =
-                new TextView(this)
+            Button view =
+                new Button(this);
+
+            view.Text =
+                "🖼 VIEW TEXTURE";
+
+            view.Click +=
+                delegate
                 {
-                    TextSize = 15
-                };
-
-            info.Text =
-                "Texture Information\n\n" +
-                "Width      : " + tex.m_Width + "\n" +
-                "Height     : " + tex.m_Height + "\n" +
-                "Format     : " + format + "\n" +
-                "MipCount   : " + tex.m_MipCount + "\n\n" +
-                "ASTC       : True\n" +
-                "Block Width: " + bw + "\n" +
-                "Block Height: " + bh + "\n\n" +
-                "Blocks X   : " + bx + "\n" +
-                "Blocks Y   : " + by + "\n\n" +
-                "Expected Mip0: " + expected + " bytes\n" +
-                "Actual Data  : " + data.Length + " bytes\n\n" +
-                "DATA SOURCE:\n" + dataSource +
-                "\n\nFirst Bytes:\n" +
-                FirstBytes(data, 64) +
-                GetTextureStorageInfo(baseField);
-
-            info.SetPadding(10, 10, 10, 10);
-            assetList.AddView(info);
-
-            var result =
-                new TextView(this)
-                {
-                    TextSize = 16
-                };
-
-            if (data.Length == expected)
-            {
-                result.Text =
-                    "\n=== HASIL ANALISIS ===\n\n" +
-                    "✓ DATA STREAM TEPAT\n\n" +
-                    "Ukuran data sama persis dengan mip 0 ASTC.";
-            }
-            else if (data.Length >= expected)
-            {
-                result.Text =
-                    "\n=== HASIL ANALISIS ===\n\n" +
-                    "✓ DATA MIP PERTAMA CUKUP\n\n" +
-                    "Data yang dibaca lebih besar dari mip 0. " +
-                    "Decoder akan menggunakan tepat " +
-                    expected + " bytes.";
-            }
-            else
-            {
-                result.Text =
-                    "\n=== HASIL ANALISIS ===\n\n" +
-                    "❌ DATA MIP PERTAMA KURANG\n\n" +
-                    "Expected: " + expected +
-                    "\nActual: " + data.Length;
-            }
-
-            result.SetPadding(10, 20, 10, 20);
-            assetList.AddView(result);
-
-            if (expected > 0 &&
-                data.Length >= expected)
-            {
-                var decode =
-                    new Button(this)
-                    {
-                        Text = "▶ DECODE ASTC DARI .resS"
-                    };
-
-                decode.Click += delegate
-                {
-                    TryDecodeAstc(
-                        data,
-                        expected,
-                        tex.m_Width,
-                        tex.m_Height,
-                        format,
-                        f,
+                    ViewTexture(
+                        assetsFile,
                         asset);
                 };
 
-                assetList.AddView(decode);
-            }
+            assetList.AddView(view);
 
-            var back =
-                new Button(this)
+            Button export =
+                new Button(this);
+
+            export.Text =
+                "📤 EXPORT PNG";
+
+            export.Click +=
+                delegate
                 {
-                    Text = "← KEMBALI KE INSPECTOR"
+                    StartTextureExport();
                 };
 
-            back.Click += delegate
-            {
-                OpenAssetInspector(f, asset);
-            };
-
-            assetList.AddView(back);
-
-            SetStatus(
-                "ASTC Diagnostic selesai.\n" +
-                format +
-                " / " +
-                tex.m_Width +
-                "x" +
-                tex.m_Height +
-                "\nSumber: " +
-                dataSource);
+            assetList.AddView(export);
         }
 
-        private void TryDecodeAstc(
-            byte[] data,
-            int expected,
-            int width,
-            int height,
-            TextureFormat format,
-            AssetsFileInstance f,
+        // ============================================================
+        // TEXTURE VIEWER
+        // ============================================================
+
+        private void ViewTexture(
+            AssetsFileInstance assetsFile,
             AssetFileInfo asset)
         {
+            if (assetsManager == null ||
+                assetList == null)
+            {
+                return;
+            }
+
             try
             {
-                if (data.Length < expected)
+                SetStatus(
+                    "Membaca Texture2D...");
+
+                AssetTypeValueField baseField =
+                    assetsManager.GetBaseField(
+                        assetsFile,
+                        asset);
+
+                if (baseField == null)
                 {
                     throw new Exception(
-                        "Data ASTC kurang.\n" +
-                        "Expected: " + expected +
-                        "\nActual: " + data.Length);
+                        "GetBaseField() mengembalikan NULL.");
                 }
 
+                TextureFile tex =
+                    TextureFile.ReadTextureFile(
+                        baseField);
+
+                if (tex == null)
+                {
+                    throw new Exception(
+                        "TextureFile gagal dibaca.");
+                }
+
+                int width =
+                    tex.m_Width;
+
+                int height =
+                    tex.m_Height;
+
+                if (width <= 0 ||
+                    height <= 0)
+                {
+                    throw new Exception(
+                        "Ukuran texture tidak valid: " +
+                        width +
+                        "x" +
+                        height);
+                }
+
+                TextureFormat format =
+                    (TextureFormat)tex.m_TextureFormat;
+
+                // ====================================================
+                // GET RAW TEXTURE DATA
+                // ====================================================
+
+                byte[] encodedData =
+                    tex.GetTextureData(
+                        assetsFile);
+
+                // ====================================================
+                // RAW DEBUG
+                // ====================================================
+
                 SetStatus(
-                    "Mencoba decode ASTC mip 0...\n" +
-                    "Menggunakan tepat " +
-                    expected +
-                    " bytes dari data .resS.");
+                    "=== TEXTURE RAW DEBUG ===\n\n" +
 
-                byte[] mip0 =
-                    new byte[expected];
+                    "Width: " +
+                    tex.m_Width +
 
-                Buffer.BlockCopy(
-                    data,
-                    0,
-                    mip0,
-                    0,
-                    expected);
+                    "\nHeight: " +
+                    tex.m_Height +
+
+                    "\nTextureFormat ID: " +
+                    tex.m_TextureFormat +
+
+                    "\nTextureFormat: " +
+                    format +
+
+                    "\nMipCount: " +
+                    tex.m_MipCount +
+
+                    "\nCompleteImageSize: " +
+                    tex.m_CompleteImageSize +
+
+                    "\nGetTextureData Length: " +
+                    (encodedData?.Length ?? 0) +
+                    " bytes"
+                );
+
+                // ====================================================
+                // VALIDATE RAW DATA
+                // ====================================================
+
+                if (encodedData == null ||
+                    encodedData.Length == 0)
+                {
+                    throw new Exception(
+                        "GetTextureData() menghasilkan data kosong.\n\n" +
+                        "Texture mungkin menggunakan .resS " +
+                        "atau data texture belum tersedia.");
+                }
+
+                // ====================================================
+                // DECODE
+                // ====================================================
 
                 byte[] bgra =
                     TextureFile.DecodeManaged(
-                        mip0,
+                        encodedData,
                         format,
                         width,
                         height,
                         true);
 
+                // ====================================================
+                // VALIDATE DECODE
+                // ====================================================
+
                 if (bgra == null ||
-                    bgra.Length < width * height * 4)
+                    bgra.Length == 0)
                 {
                     throw new Exception(
-                        "DecodeManaged() menghasilkan data tidak valid.\n" +
-                        "Expected RGBA/BGRA: " +
-                        (width * height * 4) +
-                        " bytes\nActual: " +
-                        (bgra == null ? 0 : bgra.Length));
+                        "DecodeManaged() menghasilkan data kosong.\n\n" +
+                        "Format: " +
+                        format +
+                        "\nSize: " +
+                        width +
+                        "x" +
+                        height);
                 }
+
+                int expected =
+                    width *
+                    height *
+                    4;
+
+                if (bgra.Length < expected)
+                {
+                    throw new Exception(
+                        "Ukuran hasil decoder tidak sesuai.\n\n" +
+
+                        "Format: " +
+                        format +
+
+                        "\nWidth: " +
+                        width +
+
+                        "\nHeight: " +
+                        height +
+
+                        "\nExpected: " +
+                        expected +
+                        " bytes" +
+
+                        "\nActual: " +
+                        bgra.Length +
+                        " bytes");
+                }
+
+                // ====================================================
+                // CREATE BITMAP
+                // ====================================================
 
                 Bitmap bitmap =
                     CreateBitmapFromBgra(
@@ -1231,79 +1048,433 @@ namespace UABEAvalonia.Android
                         width,
                         height);
 
+                if (bitmap == null)
+                {
+                    throw new Exception(
+                        "Bitmap gagal dibuat.");
+                }
+
+                // ====================================================
+                // SHOW PREVIEW
+                // ====================================================
+
                 ShowTexturePreview(
                     bitmap,
                     width,
                     height,
-                    format,
-                    mip0.Length,
-                    bgra.Length,
-                    f,
-                    asset);
+                    format);
 
                 SetStatus(
-                    "✓ ASTC mip 0 berhasil didecode.\n" +
-                    "Input .resS: " +
-                    mip0.Length +
-                    " bytes\nOutput: " +
+                    "✓ Texture berhasil didecode.\n\n" +
+
+                    width +
+                    "x" +
+                    height +
+
+                    "\nFormat: " +
+                    format +
+
+                    "\nCompressed: " +
+                    encodedData.Length +
+                    " bytes" +
+
+                    "\nDecoded: " +
                     bgra.Length +
-                    " bytes");
+                    " bytes"
+                );
             }
             catch (Exception ex)
             {
-                ShowTextureMessage(
-                    "ASTC DECODE ERROR",
-                    ex.ToString());
+                ShowTextureError(
+                    asset,
+                    ex);
             }
         }
 
-        private void ShowTextureMessage(string title, string message)
+        // ============================================================
+        // TEXTURE DEBUG MESSAGE
+        // ============================================================
+
+        private void ShowTextureMessage(
+            string title,
+            string message)
         {
-            ClearAssetList(); if (assetList == null) return;
-            var h = new TextView(this) { Text = "=== " + title + " ===", TextSize = 20 }; assetList.AddView(h);
-            var t = new TextView(this) { Text = message, TextSize = 16 }; assetList.AddView(t);
-            var b = new Button(this) { Text = "← KEMBALI KE INSPECTOR" }; b.Click += delegate { if (currentAssetsFile != null && currentAsset != null) OpenAssetInspector(currentAssetsFile, currentAsset); }; assetList.AddView(b);
+            ClearAssetList();
+
+            if (assetList == null)
+                return;
+
+            TextView header =
+                new TextView(this);
+
+            header.Text =
+                "=== " +
+                title +
+                " ===";
+
+            header.TextSize =
+                20;
+
+            header.SetPadding(
+                10,
+                20,
+                10,
+                20);
+
+            assetList.AddView(header);
+
+            TextView text =
+                new TextView(this);
+
+            text.Text =
+                message;
+
+            text.TextSize =
+                16;
+
+            text.SetPadding(
+                10,
+                20,
+                10,
+                20);
+
+            assetList.AddView(text);
+
+            Button back =
+                new Button(this);
+
+            back.Text =
+                "← KEMBALI KE INSPECTOR";
+
+            back.Click +=
+                delegate
+                {
+                    if (currentAssetsFile != null &&
+                        currentAsset != null)
+                    {
+                        OpenAssetInspector(
+                            currentAssetsFile,
+                            currentAsset);
+                    }
+                };
+
+            assetList.AddView(back);
         }
 
-        private void ShowTextureError(AssetFileInfo asset, Exception ex)
+        // ============================================================
+        // TEXTURE ERROR SCREEN
+        // ============================================================
+
+        private void ShowTextureError(
+            AssetFileInfo asset,
+            Exception ex)
         {
-            ClearAssetList(); if (assetList == null) return;
-            var title = new TextView(this) { Text = "❌ TEXTURE VIEWER GAGAL", TextSize = 20 }; assetList.AddView(title);
-            var error = new TextView(this) { Text = "Asset Texture2D\n\nTypeID: " + asset.TypeId + "\nPathID: " + asset.PathId + "\n\nERROR:\n" + ex.Message + "\n\nDETAIL:\n" + ex, TextSize = 15 }; assetList.AddView(error);
-            var back = new Button(this) { Text = "← KEMBALI KE INSPECTOR" }; back.Click += delegate { if (currentAssetsFile != null && currentAsset != null) OpenAssetInspector(currentAssetsFile, currentAsset); }; assetList.AddView(back);
-            SetStatus("Texture Viewer gagal. Detail error ditampilkan di layar.");
+            ClearAssetList();
+
+            if (assetList == null)
+                return;
+
+            TextView title =
+                new TextView(this);
+
+            title.Text =
+                "❌ TEXTURE VIEWER GAGAL";
+
+            title.TextSize =
+                20;
+
+            title.SetPadding(
+                10,
+                20,
+                10,
+                20);
+
+            assetList.AddView(title);
+
+            TextView error =
+                new TextView(this);
+
+            string errorText =
+                "Asset Texture2D\n\n" +
+                "TypeID: " +
+                asset.TypeId +
+                "\nPathID: " +
+                asset.PathId +
+                "\n\nERROR:\n" +
+                ex.Message +
+                "\n\nDETAIL:\n" +
+                ex.ToString();
+
+            error.Text =
+                errorText;
+
+            error.TextSize =
+                15;
+
+            error.SetPadding(
+                10,
+                20,
+                10,
+                20);
+
+            assetList.AddView(error);
+
+            Button back =
+                new Button(this);
+
+            back.Text =
+                "← KEMBALI KE INSPECTOR";
+
+            back.Click +=
+                delegate
+                {
+                    if (currentAssetsFile != null &&
+                        currentAsset != null)
+                    {
+                        OpenAssetInspector(
+                            currentAssetsFile,
+                            currentAsset);
+                    }
+                };
+
+            assetList.AddView(back);
+
+            SetStatus(
+                "Texture Viewer gagal. " +
+                "Detail error ditampilkan di layar.");
         }
 
-        private Bitmap CreateBitmapFromBgra(byte[] bgra, int width, int height)
+        // ============================================================
+        // BGRA -> ANDROID BITMAP
+        // ============================================================
+
+        private Bitmap CreateBitmapFromBgra(
+            byte[] bgra,
+            int width,
+            int height)
         {
-            if (bgra.Length < width * height * 4) throw new Exception("Ukuran data BGRA tidak sesuai ukuran texture.");
-            int[] pixels = new int[width * height]; int p = 0;
-            for (int i = 0; i < pixels.Length; i++) { byte b = bgra[p++], g = bgra[p++], r = bgra[p++], a = bgra[p++]; pixels[i] = (a << 24) | (r << 16) | (g << 8) | b; }
-            Bitmap bitmap = Bitmap.CreateBitmap(width, height, Bitmap.Config.Argb8888!);
-            bitmap.SetPixels(pixels, 0, width, 0, 0, width, height); return bitmap;
+            if (bgra == null)
+            {
+                throw new Exception(
+                    "Data BGRA NULL.");
+            }
+
+            long expectedLong =
+                (long)width *
+                height *
+                4;
+
+            if (expectedLong > int.MaxValue)
+            {
+                throw new Exception(
+                    "Texture terlalu besar untuk Bitmap Android.");
+            }
+
+            int expected =
+                (int)expectedLong;
+
+            if (bgra.Length < expected)
+            {
+                throw new Exception(
+                    "Ukuran data BGRA tidak sesuai ukuran texture.\n" +
+                    "Expected: " +
+                    expected +
+                    "\nActual: " +
+                    bgra.Length);
+            }
+
+            int[] pixels =
+                new int[
+                    width *
+                    height];
+
+            int source =
+                0;
+
+            for (int i = 0;
+                 i < pixels.Length;
+                 i++)
+            {
+                byte b =
+                    bgra[source++];
+
+                byte g =
+                    bgra[source++];
+
+                byte r =
+                    bgra[source++];
+
+                byte a =
+                    bgra[source++];
+
+                pixels[i] =
+                    (a << 24) |
+                    (r << 16) |
+                    (g << 8) |
+                    b;
+            }
+
+            Bitmap bitmap =
+                Bitmap.CreateBitmap(
+                    width,
+                    height,
+                    Bitmap.Config.Argb8888!);
+
+            bitmap.SetPixels(
+                pixels,
+                0,
+                width,
+                0,
+                0,
+                width,
+                height);
+
+            return bitmap;
         }
 
-        private void ShowTexturePreview(Bitmap bitmap, int width, int height, TextureFormat format, int encodedSize, int decodedSize, AssetsFileInstance f, AssetFileInfo asset)
+        // ============================================================
+        // TEXTURE PREVIEW
+        // ============================================================
+
+        private void ShowTexturePreview(
+            Bitmap bitmap,
+            int width,
+            int height,
+            TextureFormat format)
         {
-            ClearAssetList(); if (assetList == null) return;
-            var back = new Button(this) { Text = "← KEMBALI KE INSPECTOR" }; back.Click += delegate { OpenAssetInspector(f, asset); }; assetList.AddView(back);
-            var info = new TextView(this) { TextSize = 16 };
-            info.Text = "=== TEXTURE VIEWER ===\n\nSize: " + width + " x " + height + "\nTexture Format: " + format + "\nEncoded: " + encodedSize + " bytes\nDecoded: " + decodedSize + " bytes\nPreview: BGRA → Android Bitmap"; assetList.AddView(info);
-            var image = new ImageView(this); image.SetImageBitmap(bitmap); image.SetAdjustViewBounds(true); image.SetScaleType(ImageView.ScaleType.FitCenter); var ip = new LinearLayout.LayoutParams(-1, -2); ip.SetMargins(0, 20, 0, 20); assetList.AddView(image, ip);
-            var export = new Button(this) { Text = "📤 EXPORT PNG" }; export.Click += delegate { StartTextureExport(); }; assetList.AddView(export);
+            ClearAssetList();
+
+            if (assetList == null)
+                return;
+
+            Button back =
+                new Button(this);
+
+            back.Text =
+                "← KEMBALI KE INSPECTOR";
+
+            back.Click +=
+                delegate
+                {
+                    if (currentAssetsFile != null &&
+                        currentAsset != null)
+                    {
+                        OpenAssetInspector(
+                            currentAssetsFile,
+                            currentAsset);
+                    }
+                };
+
+            assetList.AddView(back);
+
+            TextView info =
+                new TextView(this);
+
+            info.Text =
+                "=== TEXTURE VIEWER ===\n\n" +
+                "Size: " +
+                width +
+                " x " +
+                height +
+                "\nTexture Format: " +
+                format +
+                "\nPreview: BGRA → Android Bitmap";
+
+            info.TextSize =
+                16;
+
+            assetList.AddView(info);
+
+            ImageView image =
+                new ImageView(this);
+
+            image.SetImageBitmap(
+                bitmap);
+
+            image.SetAdjustViewBounds(
+                true);
+
+            image.SetScaleType(
+                ImageView.ScaleType.FitCenter);
+
+            LinearLayout.LayoutParams imageParams =
+                new LinearLayout.LayoutParams(
+                    -1,
+                    -2);
+
+            imageParams.SetMargins(
+                0,
+                20,
+                0,
+                20);
+
+            assetList.AddView(
+                image,
+                imageParams);
+
+            Button export =
+                new Button(this);
+
+            export.Text =
+                "📤 EXPORT PNG";
+
+            export.Click +=
+                delegate
+                {
+                    StartTextureExport();
+                };
+
+            assetList.AddView(export);
+
+            SetStatus(
+                "Texture Viewer: " +
+                width +
+                " x " +
+                height +
+                "\nFormat: " +
+                format);
         }
+
+        // ============================================================
+        // START EXPORT
+        // ============================================================
 
         private void StartTextureExport()
         {
             try
             {
-                if (currentAssetsFile == null || currentAsset == null) throw new Exception("Texture aktif tidak ditemukan.");
-                var intent = new Intent(Intent.ActionCreateDocument); intent.AddCategory(Intent.CategoryOpenable); intent.SetType("image/png"); intent.PutExtra(Intent.ExtraTitle, "texture.png"); StartActivityForResult(intent, ExportTextureRequestCode);
+                Intent intent =
+                    new Intent(
+                        Intent.ActionCreateDocument);
+
+                intent.AddCategory(
+                    Intent.CategoryOpenable);
+
+                intent.SetType(
+                    "image/png");
+
+                intent.PutExtra(
+                    Intent.ExtraTitle,
+                    "texture.png");
+
+                StartActivityForResult(
+                    intent,
+                    ExportTextureRequestCode);
             }
-            catch (Exception ex) { SetStatus("Export gagal dimulai.\n\n" + ex.Message); }
+            catch (Exception ex)
+            {
+                SetStatus(
+                    "Export Picker gagal.\n\n" +
+                    ex.Message);
+            }
         }
 
-        private void ExportCurrentTexture(AndroidUri outputUri)
+        // ============================================================
+        // EXPORT PNG
+        // ============================================================
+
+        private void ExportCurrentTexture(
+            AndroidUri outputUri)
         {
             if (assetsManager == null ||
                 currentAssetsFile == null ||
@@ -1319,67 +1490,44 @@ namespace UABEAvalonia.Android
                     currentAsset);
 
             if (baseField == null)
+            {
                 throw new Exception(
                     "GetBaseField() gagal.");
+            }
 
             TextureFile tex =
-                TextureFile.ReadTextureFile(baseField);
+                TextureFile.ReadTextureFile(
+                    baseField);
 
             if (tex == null)
+            {
                 throw new Exception(
                     "TextureFile gagal dibaca.");
+            }
 
-            int width = tex.m_Width;
-            int height = tex.m_Height;
+            int width =
+                tex.m_Width;
+
+            int height =
+                tex.m_Height;
+
             TextureFormat format =
                 (TextureFormat)tex.m_TextureFormat;
 
-            string source;
-            byte[]? streamData =
-                ReadTextureStreamData(
-                    currentAssetsFile,
-                    baseField,
-                    out source);
+            byte[] encodedData =
+                tex.GetTextureData(
+                    currentAssetsFile);
 
-            byte[] data;
-
-            if (streamData != null &&
-                streamData.Length > 0)
-            {
-                data = streamData;
-            }
-            else
-            {
-                source =
-                    "m_TextureData / GetTextureData()";
-
-                data =
-                    tex.GetTextureData(
-                        currentAssetsFile);
-            }
-
-            if (data == null ||
-                data.Length == 0)
+            if (encodedData == null ||
+                encodedData.Length == 0)
             {
                 throw new Exception(
-                    "Data texture kosong.\n" +
-                    "Sumber: " + source);
+                    "GetTextureData() menghasilkan data kosong.");
             }
-
-            int exportExpectedMip0;
-            string exportMipNote;
-            data = PrepareMip0Data(
-                data,
-                format,
-                width,
-                height,
-                source,
-                out exportExpectedMip0,
-                out exportMipNote);
 
             byte[] bgra =
                 TextureFile.DecodeManaged(
-                    data,
+                    encodedData,
                     format,
                     width,
                     height,
@@ -1390,8 +1538,8 @@ namespace UABEAvalonia.Android
             {
                 throw new Exception(
                     "DecodeManaged() gagal.\n" +
-                    "Format: " + format +
-                    "\nSource: " + source);
+                    "Format: " +
+                    format);
             }
 
             Bitmap bitmap =
@@ -1405,115 +1553,805 @@ namespace UABEAvalonia.Android
                     outputUri);
 
             if (output == null)
+            {
                 throw new Exception(
                     "Tidak dapat membuka output.");
+            }
 
-            bool ok =
+            bool success =
                 bitmap.Compress(
                     Bitmap.CompressFormat.Png,
                     100,
                     output);
 
             output.Flush();
+
             bitmap.Recycle();
 
-            if (!ok)
+            if (!success)
+            {
                 throw new Exception(
                     "Bitmap gagal diexport ke PNG.");
+            }
 
             SetStatus(
                 "✓ EXPORT BERHASIL\n" +
-                width + "x" + height +
-                "\nFormat: " + format +
-                "\nSumber: " + source +
-                "\nMip0: " + exportExpectedMip0 + " bytes" +
-                "\n" + exportMipNote);
+                width +
+                "x" +
+                height +
+                "\nFormat: " +
+                format +
+                "\nData: " +
+                encodedData.Length +
+                " bytes");
         }
 
         // ============================================================
-        // FIELD TREE / EDITOR
+        // FIELD TREE
         // ============================================================
 
-        private void AddFieldTree(AssetTypeValueField field, int depth)
+        private void AddFieldTree(
+            AssetTypeValueField field,
+            int depth)
         {
-            if (field == null || assetList == null) return;
-            int count = GetChildCount(field); string name = SafeFieldName(field), value = GetDisplayValue(field), indent = MakeIndent(depth);
-            var container = new LinearLayout(this) { Orientation = Orientation.Vertical }; var text = new TextView(this) { TextSize = 15 };
-            if (count > 0)
+            if (field == null ||
+                assetList == null)
             {
-                text.Text = indent + "▼ " + name + " [" + count + "]"; container.AddView(text); var children = new LinearLayout(this) { Orientation = Orientation.Vertical }; children.Visibility = AndroidViewStates.Visible;
-                for (int i = 0; i < count; i++) { var child = GetChild(field, i); if (child != null) AddFieldToLayoutExpanded(children, child, depth + 1); }
-                container.AddView(children); text.Click += delegate { children.Visibility = children.Visibility == AndroidViewStates.Gone ? AndroidViewStates.Visible : AndroidViewStates.Gone; text.Text = indent + (children.Visibility == AndroidViewStates.Visible ? "▼ " : "▶ ") + name + " [" + count + "]"; };
+                return;
+            }
+
+            int childCount =
+                GetChildCount(field);
+
+            string fieldName =
+                SafeFieldName(field);
+
+            string value =
+                GetDisplayValue(field);
+
+            LinearLayout container =
+                new LinearLayout(this);
+
+            container.Orientation =
+                Orientation.Vertical;
+
+            TextView text =
+                new TextView(this);
+
+            text.TextSize =
+                15;
+
+            string indent =
+                MakeIndent(depth);
+
+            if (childCount > 0)
+            {
+                text.Text =
+                    indent +
+                    "▼ " +
+                    fieldName +
+                    " [" +
+                    childCount +
+                    "]";
+
+                container.AddView(text);
+
+                LinearLayout children =
+                    new LinearLayout(this);
+
+                children.Orientation =
+                    Orientation.Vertical;
+
+                children.Visibility =
+                    AndroidViewStates.Visible;
+
+                for (int i = 0;
+                     i < childCount;
+                     i++)
+                {
+                    AssetTypeValueField? child =
+                        GetChild(
+                            field,
+                            i);
+
+                    if (child != null)
+                    {
+                        AddFieldToLayoutExpanded(
+                            children,
+                            child,
+                            depth + 1);
+                    }
+                }
+
+                container.AddView(
+                    children);
+
+                text.Click +=
+                    delegate
+                    {
+                        if (children.Visibility ==
+                            AndroidViewStates.Gone)
+                        {
+                            children.Visibility =
+                                AndroidViewStates.Visible;
+
+                            text.Text =
+                                indent +
+                                "▼ " +
+                                fieldName +
+                                " [" +
+                                childCount +
+                                "]";
+                        }
+                        else
+                        {
+                            children.Visibility =
+                                AndroidViewStates.Gone;
+
+                            text.Text =
+                                indent +
+                                "▶ " +
+                                fieldName +
+                                " [" +
+                                childCount +
+                                "]";
+                        }
+                    };
             }
             else
             {
-                text.Text = string.IsNullOrEmpty(value) ? indent + "• " + name : indent + "• " + name + " = " + value; container.AddView(text); text.Click += delegate { ShowFieldEditor(field); };
+                text.Text =
+                    string.IsNullOrEmpty(value)
+                    ? indent +
+                      "• " +
+                      fieldName
+                    : indent +
+                      "• " +
+                      fieldName +
+                      " = " +
+                      value;
+
+                container.AddView(text);
+
+                text.Click +=
+                    delegate
+                    {
+                        ShowFieldEditor(
+                            field);
+                    };
             }
-            assetList.AddView(container);
+
+            assetList.AddView(
+                container);
         }
 
-        private void AddFieldToLayoutExpanded(LinearLayout parent, AssetTypeValueField field, int depth)
+        private void AddFieldToLayoutExpanded(
+            LinearLayout parent,
+            AssetTypeValueField field,
+            int depth)
         {
-            if (field == null) return; int count = GetChildCount(field); string name = SafeFieldName(field), value = GetDisplayValue(field), indent = MakeIndent(depth); var text = new TextView(this) { TextSize = 15 };
-            if (count > 0)
+            if (field == null)
+                return;
+
+            int childCount =
+                GetChildCount(field);
+
+            string fieldName =
+                SafeFieldName(field);
+
+            string value =
+                GetDisplayValue(field);
+
+            string indent =
+                MakeIndent(depth);
+
+            TextView text =
+                new TextView(this);
+
+            text.TextSize =
+                15;
+
+            if (childCount > 0)
             {
-                text.Text = indent + "▼ " + name + " [" + count + "]"; parent.AddView(text); var children = new LinearLayout(this) { Orientation = Orientation.Vertical }; children.Visibility = AndroidViewStates.Visible;
-                for (int i = 0; i < count; i++) { var child = GetChild(field, i); if (child != null) AddFieldToLayoutExpanded(children, child, depth + 1); }
-                parent.AddView(children); text.Click += delegate { children.Visibility = children.Visibility == AndroidViewStates.Gone ? AndroidViewStates.Visible : AndroidViewStates.Gone; text.Text = indent + (children.Visibility == AndroidViewStates.Visible ? "▼ " : "▶ ") + name + " [" + count + "]"; };
+                text.Text =
+                    indent +
+                    "▼ " +
+                    fieldName +
+                    " [" +
+                    childCount +
+                    "]";
+
+                parent.AddView(text);
+
+                LinearLayout children =
+                    new LinearLayout(this);
+
+                children.Orientation =
+                    Orientation.Vertical;
+
+                children.Visibility =
+                    AndroidViewStates.Visible;
+
+                for (int i = 0;
+                     i < childCount;
+                     i++)
+                {
+                    AssetTypeValueField? child =
+                        GetChild(
+                            field,
+                            i);
+
+                    if (child != null)
+                    {
+                        AddFieldToLayoutExpanded(
+                            children,
+                            child,
+                            depth + 1);
+                    }
+                }
+
+                parent.AddView(
+                    children);
+
+                text.Click +=
+                    delegate
+                    {
+                        if (children.Visibility ==
+                            AndroidViewStates.Gone)
+                        {
+                            children.Visibility =
+                                AndroidViewStates.Visible;
+
+                            text.Text =
+                                indent +
+                                "▼ " +
+                                fieldName +
+                                " [" +
+                                childCount +
+                                "]";
+                        }
+                        else
+                        {
+                            children.Visibility =
+                                AndroidViewStates.Gone;
+
+                            text.Text =
+                                indent +
+                                "▶ " +
+                                fieldName +
+                                " [" +
+                                childCount +
+                                "]";
+                        }
+                    };
             }
             else
             {
-                text.Text = string.IsNullOrEmpty(value) ? indent + "• " + name : indent + "• " + name + " = " + value; parent.AddView(text); text.Click += delegate { ShowFieldEditor(field); };
+                text.Text =
+                    string.IsNullOrEmpty(value)
+                    ? indent +
+                      "• " +
+                      fieldName
+                    : indent +
+                      "• " +
+                      fieldName +
+                      " = " +
+                      value;
+
+                parent.AddView(text);
+
+                text.Click +=
+                    delegate
+                    {
+                        ShowFieldEditor(
+                            field);
+                    };
             }
         }
 
-        private int GetChildCount(AssetTypeValueField field) { try { return field.Children == null ? 0 : field.Children.Count; } catch { return 0; } }
-        private AssetTypeValueField? GetChild(AssetTypeValueField field, int index) { try { if (field.Children == null || index < 0 || index >= field.Children.Count) return null; return field.Children[index]; } catch { return null; } }
-        private string SafeFieldName(AssetTypeValueField field) { try { if (!string.IsNullOrEmpty(field.FieldName)) return field.FieldName; } catch { } return "(unnamed)"; }
+        // ============================================================
+        // FIELD HELPERS
+        // ============================================================
 
-        private string GetDisplayValue(AssetTypeValueField field)
+        private int GetChildCount(
+            AssetTypeValueField field)
         {
-            try { if (field.Value == null) return ""; } catch { return ""; }
-            try { string v = field.Value.AsString; if (!string.IsNullOrEmpty(v)) return v; } catch { }
-            try { return field.Value.AsBool.ToString(); } catch { }
-            try { return field.Value.AsInt.ToString(CultureInfo.InvariantCulture); } catch { }
-            try { return field.Value.AsUInt.ToString(CultureInfo.InvariantCulture); } catch { }
-            try { return field.Value.AsLong.ToString(CultureInfo.InvariantCulture); } catch { }
-            try { return field.Value.AsULong.ToString(CultureInfo.InvariantCulture); } catch { }
-            try { return field.Value.AsFloat.ToString(CultureInfo.InvariantCulture); } catch { }
-            try { return field.Value.AsDouble.ToString(CultureInfo.InvariantCulture); } catch { }
+            try
+            {
+                if (field.Children == null)
+                    return 0;
+
+                return field.Children.Count;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
+        private AssetTypeValueField? GetChild(
+            AssetTypeValueField field,
+            int index)
+        {
+            try
+            {
+                if (field.Children == null ||
+                    index < 0 ||
+                    index >= field.Children.Count)
+                {
+                    return null;
+                }
+
+                return field.Children[index];
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private string SafeFieldName(
+            AssetTypeValueField field)
+        {
+            try
+            {
+                if (!string.IsNullOrEmpty(
+                    field.FieldName))
+                {
+                    return field.FieldName;
+                }
+            }
+            catch
+            {
+            }
+
+            return "(unnamed)";
+        }
+
+        private string GetDisplayValue(
+            AssetTypeValueField field)
+        {
+            try
+            {
+                if (field.Value == null)
+                    return "";
+            }
+            catch
+            {
+                return "";
+            }
+
+            try
+            {
+                string value =
+                    field.Value.AsString;
+
+                if (!string.IsNullOrEmpty(value))
+                    return value;
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                return field.Value.AsBool.ToString();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                return field.Value.AsInt.ToString(
+                    CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                return field.Value.AsUInt.ToString(
+                    CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                return field.Value.AsLong.ToString(
+                    CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                return field.Value.AsULong.ToString(
+                    CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                return field.Value.AsFloat.ToString(
+                    CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                return field.Value.AsDouble.ToString(
+                    CultureInfo.InvariantCulture);
+            }
+            catch
+            {
+            }
+
             return "";
         }
 
-        private void ShowFieldEditor(AssetTypeValueField field)
+        // ============================================================
+        // FIELD EDITOR
+        // ============================================================
+
+        private void ShowFieldEditor(
+            AssetTypeValueField field)
         {
-            string name = SafeFieldName(field), current = GetDisplayValue(field); var builder = new AlertDialog.Builder(this); builder.SetTitle("EDIT FIELD"); var layout = new LinearLayout(this) { Orientation = Orientation.Vertical }; layout.SetPadding(40, 20, 40, 20);
-            var info = new TextView(this) { Text = "Field:\n" + name + "\n\nNilai sekarang:\n" + current + "\n\nNilai baru:", TextSize = 16 }; layout.AddView(info); var input = new EditText(this) { Text = current }; input.SetSingleLine(true); layout.AddView(input); builder.SetView(layout);
-            builder.SetNegativeButton("CANCEL", (s, e) => { }); builder.SetPositiveButton("APPLY", (s, e) => { try { ApplyFieldValue(field, input.Text ?? ""); if (currentAsset != null) modifiedAssets.Add(currentAsset.PathId); SetStatus("✓ Field berhasil diubah:\n" + name + "\nAsset ditandai MODIFIED."); if (currentAssetsFile != null && currentAsset != null) OpenAssetInspector(currentAssetsFile, currentAsset); } catch (Exception ex) { SetStatus("Gagal mengubah field:\n\n" + ex.Message); } }); builder.Show();
+            string fieldName =
+                SafeFieldName(field);
+
+            string currentValue =
+                GetDisplayValue(field);
+
+            AlertDialog.Builder builder =
+                new AlertDialog.Builder(this);
+
+            builder.SetTitle(
+                "EDIT FIELD");
+
+            LinearLayout layout =
+                new LinearLayout(this);
+
+            layout.Orientation =
+                Orientation.Vertical;
+
+            layout.SetPadding(
+                40,
+                20,
+                40,
+                20);
+
+            TextView info =
+                new TextView(this);
+
+            info.Text =
+                "Field:\n" +
+                fieldName +
+                "\n\nNilai sekarang:\n" +
+                currentValue +
+                "\n\nNilai baru:";
+
+            info.TextSize =
+                16;
+
+            layout.AddView(info);
+
+            EditText input =
+                new EditText(this);
+
+            input.Text =
+                currentValue;
+
+            input.SetSingleLine(
+                true);
+
+            layout.AddView(input);
+
+            builder.SetView(
+                layout);
+
+            builder.SetNegativeButton(
+                "CANCEL",
+                (sender, args) =>
+                {
+                });
+
+            builder.SetPositiveButton(
+                "APPLY",
+                (sender, args) =>
+                {
+                    try
+                    {
+                        ApplyFieldValue(
+                            field,
+                            input.Text ?? "");
+
+                        if (currentAsset != null)
+                        {
+                            modifiedAssets.Add(
+                                currentAsset.PathId);
+                        }
+
+                        SetStatus(
+                            "✓ Field berhasil diubah:\n" +
+                            fieldName +
+                            "\nAsset ditandai MODIFIED.");
+
+                        if (currentAssetsFile != null &&
+                            currentAsset != null)
+                        {
+                            OpenAssetInspector(
+                                currentAssetsFile,
+                                currentAsset);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        SetStatus(
+                            "Gagal mengubah field:\n\n" +
+                            ex.Message);
+                    }
+                });
+
+            builder.Show();
         }
 
-        private void ApplyFieldValue(AssetTypeValueField field, string value)
+        private void ApplyFieldValue(
+            AssetTypeValueField field,
+            string value)
         {
-            try { field.Value.AsString = value; return; } catch { }
-            if (bool.TryParse(value, out bool b)) try { field.Value.AsBool = b; return; } catch { }
-            if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int i)) try { field.Value.AsInt = i; return; } catch { }
-            if (uint.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out uint ui)) try { field.Value.AsUInt = ui; return; } catch { }
-            if (long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out long l)) try { field.Value.AsLong = l; return; } catch { }
-            if (ulong.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out ulong ul)) try { field.Value.AsULong = ul; return; } catch { }
-            if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out float fl)) try { field.Value.AsFloat = fl; return; } catch { }
-            if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double d)) try { field.Value.AsDouble = d; return; } catch { }
-            throw new Exception("Tipe field tidak dapat diubah.");
+            try
+            {
+                field.Value.AsString =
+                    value;
+
+                return;
+            }
+            catch
+            {
+            }
+
+            if (bool.TryParse(
+                value,
+                out bool boolValue))
+            {
+                try
+                {
+                    field.Value.AsBool =
+                        boolValue;
+
+                    return;
+                }
+                catch
+                {
+                }
+            }
+
+            if (int.TryParse(
+                value,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out int intValue))
+            {
+                try
+                {
+                    field.Value.AsInt =
+                        intValue;
+
+                    return;
+                }
+                catch
+                {
+                }
+            }
+
+            if (uint.TryParse(
+                value,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out uint uintValue))
+            {
+                try
+                {
+                    field.Value.AsUInt =
+                        uintValue;
+
+                    return;
+                }
+                catch
+                {
+                }
+            }
+
+            if (long.TryParse(
+                value,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out long longValue))
+            {
+                try
+                {
+                    field.Value.AsLong =
+                        longValue;
+
+                    return;
+                }
+                catch
+                {
+                }
+            }
+
+            if (ulong.TryParse(
+                value,
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out ulong ulongValue))
+            {
+                try
+                {
+                    field.Value.AsULong =
+                        ulongValue;
+
+                    return;
+                }
+                catch
+                {
+                }
+            }
+
+            if (float.TryParse(
+                value,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out float floatValue))
+            {
+                try
+                {
+                    field.Value.AsFloat =
+                        floatValue;
+
+                    return;
+                }
+                catch
+                {
+                }
+            }
+
+            if (double.TryParse(
+                value,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out double doubleValue))
+            {
+                try
+                {
+                    field.Value.AsDouble =
+                        doubleValue;
+
+                    return;
+                }
+                catch
+                {
+                }
+            }
+
+            throw new Exception(
+                "Tipe field tidak dapat diubah.");
         }
 
         // ============================================================
-        // NAVIGATION / UI
+        // NAVIGATION
         // ============================================================
 
-        private string MakeIndent(int depth) => depth <= 0 ? "" : new string(' ', depth * 4);
-        private void ReturnToAssetList() { if (currentAssetsFile == null) return; showingInspector = false; showingAssetList = true; ShowAssetList(currentAssetsFile); }
-        private void ReturnToSerializedFiles() { if (currentBundle == null) return; showingInspector = false; showingAssetList = false; showingSerializedFiles = true; ShowSerializedFiles(0, "AssetBundle"); }
-        public override void OnBackPressed() { if (showingInspector) { ReturnToAssetList(); return; } if (showingAssetList) { ReturnToSerializedFiles(); return; } if (showingSerializedFiles) { showingSerializedFiles = false; ClearAssetList(); SetStatus("Tekan OPEN UNITY3D."); return; } base.OnBackPressed(); }
-        private void ClearAssetList() { assetList?.RemoveAllViews(); }
-        private void SetStatus(string message) { RunOnUiThread(delegate { if (status != null) status.Text = message; }); }
+        private string MakeIndent(
+            int depth)
+        {
+            if (depth <= 0)
+                return "";
+
+            return new string(
+                ' ',
+                depth * 4);
+        }
+
+        private void ReturnToAssetList()
+        {
+            if (currentAssetsFile == null)
+                return;
+
+            showingInspector =
+                false;
+
+            showingAssetList =
+                true;
+
+            ShowAssetList(
+                currentAssetsFile);
+        }
+
+        private void ReturnToSerializedFiles()
+        {
+            if (currentBundle == null)
+                return;
+
+            showingInspector =
+                false;
+
+            showingAssetList =
+                false;
+
+            showingSerializedFiles =
+                true;
+
+            ClearAssetList();
+
+            ShowSerializedFiles(
+                0,
+                "AssetBundle");
+        }
+
+        public override void OnBackPressed()
+        {
+            if (showingInspector)
+            {
+                ReturnToAssetList();
+                return;
+            }
+
+            if (showingAssetList)
+            {
+                ReturnToSerializedFiles();
+                return;
+            }
+
+            if (showingSerializedFiles)
+            {
+                showingSerializedFiles =
+                    false;
+
+                ClearAssetList();
+
+                SetStatus(
+                    "Tekan OPEN UNITY3D.");
+
+                return;
+            }
+
+            base.OnBackPressed();
+        }
+
+        // ============================================================
+        // UI HELPERS
+        // ============================================================
+
+        private void ClearAssetList()
+        {
+            if (assetList == null)
+                return;
+
+            assetList.RemoveAllViews();
+        }
+
+        private void SetStatus(
+            string message)
+        {
+            RunOnUiThread(
+                delegate
+                {
+                    if (status != null)
+                    {
+                        status.Text =
+                            message;
+                    }
+                });
+        }
     }
 }
