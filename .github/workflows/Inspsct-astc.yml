@@ -1,0 +1,140 @@
+name: Inspect ASTC Texture Decoder
+
+on:
+  workflow_dispatch:
+
+jobs:
+  inspect-astc:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ============================================================
+      # 1. CHECKOUT REPOSITORY
+      # ============================================================
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ============================================================
+      # 2. SETUP .NET
+      # ============================================================
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      # ============================================================
+      # 3. CEK FILE INSPECTOR
+      # ============================================================
+      - name: Check ASTC Inspector
+        shell: bash
+        run: |
+          echo "======================================"
+          echo "ASTC INSPECTOR"
+          echo "======================================"
+
+          echo ""
+          echo "Mencari ASTCInspector.csproj..."
+          find . -iname "ASTCInspector.csproj" -print
+
+          echo ""
+          echo "Mencari Program.cs..."
+          find . -path "*/ASTCInspector/*" -name "Program.cs" -print
+
+          echo ""
+          echo "Mencari AssetsTools.NET.Texture.dll..."
+          find . -iname "AssetsTools.NET.Texture.dll" -print
+
+      # ============================================================
+      # 4. BUILD ASTC INSPECTOR
+      # ============================================================
+      - name: Build ASTC Inspector
+        shell: bash
+        run: |
+          set -e
+
+          PROJECT=$(find . -iname "ASTCInspector.csproj" | head -n 1)
+
+          if [ -z "$PROJECT" ]; then
+            echo "❌ ASTCInspector.csproj tidak ditemukan!"
+            exit 1
+          fi
+
+          echo "Project ditemukan:"
+          echo "$PROJECT"
+
+          dotnet restore "$PROJECT"
+          dotnet build "$PROJECT" \
+            --configuration Release \
+            --no-restore
+
+      # ============================================================
+      # 5. CARI DLL
+      # ============================================================
+      - name: Locate Texture DLL
+        shell: bash
+        run: |
+          set -e
+
+          DLL=$(find . -iname "AssetsTools.NET.Texture.dll" | head -n 1)
+
+          if [ -z "$DLL" ]; then
+            echo "❌ AssetsTools.NET.Texture.dll tidak ditemukan!"
+            exit 1
+          fi
+
+          echo "DLL ditemukan:"
+          echo "$DLL"
+
+          echo "$DLL" > texture_dll_path.txt
+
+      # ============================================================
+      # 6. JALANKAN ASTC INSPECTOR
+      # ============================================================
+      - name: Run ASTC Inspector
+        shell: bash
+        run: |
+          set -e
+
+          PROJECT=$(find . -iname "ASTCInspector.csproj" | head -n 1)
+          DLL=$(cat texture_dll_path.txt)
+
+          echo "======================================"
+          echo "MENJALANKAN ASTC INSPECTOR"
+          echo "======================================"
+
+          echo ""
+          echo "Project:"
+          echo "$PROJECT"
+
+          echo ""
+          echo "DLL:"
+          echo "$DLL"
+
+          mkdir -p inspector-output
+
+          dotnet run \
+            --project "$PROJECT" \
+            --configuration Release \
+            --no-build \
+            -- "$DLL" \
+            > inspector-output/astc-inspector.txt 2>&1
+
+          echo ""
+          echo "======================================"
+          echo "HASIL INSPECTION"
+          echo "======================================"
+
+          cat inspector-output/astc-inspector.txt
+
+      # ============================================================
+      # 7. SIMPAN HASIL SEBAGAI ARTIFACT
+      # ============================================================
+      - name: Upload ASTC Inspector Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: astc-inspector-report
+          path: |
+            inspector-output/
+            texture_dll_path.txt
+          if-no-files-found: warn
