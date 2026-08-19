@@ -1030,6 +1030,38 @@ SetStatus(
                             width,
                             height,
                             true);
+                            
+// ============================================================
+// DEBUG DECODE OUTPUT
+// ============================================================
+
+string bgraBytes = "";
+
+int bgraDump =
+    Math.Min(
+        bgra.Length,
+        32);
+
+for (int i = 0; i < bgraDump; i++)
+{
+    bgraBytes +=
+        bgra[i].ToString("X2") + " ";
+}
+
+SetStatus(
+    "=== ETC DECODE DEBUG ===\n\n" +
+    "Format: " +
+    candidate +
+    "\nSize: " +
+    width +
+    "x" +
+    height +
+    "\nEncoded: " +
+    input.Length +
+    "\nDecoded: " +
+    bgra.Length +
+    "\n\nFirst BGRA bytes:\n" +
+    bgraBytes);
 
                     if (bgra == null ||
                         bgra.Length <
