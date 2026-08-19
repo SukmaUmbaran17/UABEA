@@ -822,40 +822,6 @@ namespace UABEAvalonia.Android
                         "\nSource: " +
                         source);
                 }
-                
-                // ============================================================
-// RAW ETC2 DEBUG
-// ============================================================
-
-string firstBytes = "";
-
-int dumpCount =
-    Math.Min(
-        data.Length,
-        32);
-
-for (int i = 0; i < dumpCount; i++)
-{
-    firstBytes +=
-        data[i].ToString("X2") + " ";
-}
-
-SetStatus(
-    "=== RAW TEXTURE DEBUG ===\n\n" +
-    "Format: " +
-    format +
-    "\nSize: " +
-    width +
-    "x" +
-    height +
-    "\nData Length: " +
-    data.Length +
-    "\nSource: " +
-    source +
-    "\n\nFirst " +
-    dumpCount +
-    " bytes:\n" +
-    firstBytes);
 
                 UniversalDecodeResult result =
                     DecodeTextureUniversal(
@@ -1024,15 +990,24 @@ SetStatus(
                     }
 
                     byte[] bgra =
-                        TextureFile.DecodeManaged(
-                            input,
-                            candidate,
-                            width,
-                            height,
-                            true);
-                            
+    TextureFile.DecodeManaged(
+        input,
+        candidate,
+        width,
+        height,
+        true);
+
+if (bgra == null)
+{
+    errors.Add(
+        candidate +
+        ": DecodeManaged menghasilkan NULL.");
+
+    continue;
+}
+
 // ============================================================
-// DEBUG DECODE OUTPUT
+// DEBUG OUTPUT ETC
 // ============================================================
 
 string bgraBytes = "";
@@ -1063,16 +1038,15 @@ SetStatus(
     "\n\nFirst BGRA bytes:\n" +
     bgraBytes);
 
-                    if (bgra == null ||
-                        bgra.Length <
-                        width * height * 4)
-                    {
-                        errors.Add(
-                            candidate +
-                            ": output BGRA tidak valid.");
+if (bgra.Length <
+    width * height * 4)
+{
+    errors.Add(
+        candidate +
+        ": output BGRA tidak valid.");
 
-                        continue;
-                    }
+    continue;
+}
 
                     string decoder =
                         candidate == format
@@ -1146,51 +1120,68 @@ SetStatus(
     TextureFormat format,
     List<TextureFormat> attempts)
 {
-    string n =
-        format.ToString()
-              .ToUpperInvariant();
+    string n = format
+        .ToString()
+        .ToUpperInvariant();
 
-    // ============================================================
+    // =========================================================
     // ETC / ETC2
-    // ============================================================
+    // =========================================================
     //
-    // PENTING:
+    // JANGAN mencampurkan ETC2_RGBA8 dengan ETC_RGB4.
     //
-    // ETC2_RGBA8 TIDAK boleh fallback ke ETC_RGB4.
+    // ETC2_RGBA8:
+    //   4x4 block = 16 bytes
     //
-    // ETC2_RGBA8 = 16 bytes per 4x4 block
-    // ETC_RGB4   =  8 bytes per 4x4 block
+    // ETC_RGB4:
+    //   4x4 block = 8 bytes
     //
-    // Kalau ETC2_RGBA8 dipaksa menjadi ETC_RGB4,
-    // data texture akan terpotong menjadi setengah ukuran
-    // dan hasil preview dapat menjadi pixelated / rusak.
+    // Jadi fallback berdasarkan ukuran buffer dapat menyebabkan
+    // hanya setengah data texture yang dibaca.
     //
-    // Jadi untuk ETC2_RGBA8 kita tidak membuat fallback
-    // ke format RGB-only.
-    // ============================================================
 
-    // ETC2 RGBA1 mempunyai format alpha 1-bit.
-    // Jangan diturunkan menjadi ETC RGB biasa.
-    if (n.Contains("ETC2_RGBA1"))
+    if (n.Contains("ETC2_RGBA8") ||
+        n.Contains("ETC2A8"))
     {
+        // ETC2_RGBA8 harus tetap ETC2_RGBA8.
+        // Tidak ada fallback ke ETC_RGB4.
         return;
     }
 
-    // ============================================================
+    if (n.Contains("ETC2_RGB"))
+    {
+        // ETC2 RGB harus tetap ETC2 RGB.
+        // Jangan fallback ke ETC_RGB4.
+        return;
+    }
+
+    if (n.Contains("ETC_RGB4"))
+    {
+        // ETC RGB4 harus tetap ETC RGB4.
+        // Jangan fallback ke ETC2 RGB.
+        return;
+    }
+
+    // ETC2 RGBA1
+    if (n.Contains("ETC2_RGBA1"))
+    {
+        // Pertahankan format ETC2 RGBA1.
+        return;
+    }
+
+    // =========================================================
     // ASTC
-    // ============================================================
+    // =========================================================
     //
-    // ASTC hanya boleh fallback ke sibling ASTC.
-    // Jangan mencampurkan ASTC dengan ETC / ETC2.
-    // ============================================================
+    // ASTC hanya boleh fallback ke block size ASTC lain.
+    // Jangan pernah dicampur dengan ETC / ETC2.
+    //
 
     if (n.Contains("ASTC"))
     {
         AddAstcSiblingFallbacks(
             format,
             attempts);
-
-        return;
     }
 }
 
