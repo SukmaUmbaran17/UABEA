@@ -1103,35 +1103,6 @@ namespace UABEAvalonia.Android
     // ke format RGB-only.
     // ============================================================
 
-    if (n.Contains("ETC2_RGBA8") ||
-        n.Contains("ETC2A8"))
-    {
-        // Jangan tambahkan ETC_RGB4.
-        // Jangan tambahkan ETC2_RGB.
-        //
-        // Primary ETC2_RGBA8 harus dipertahankan.
-        return;
-    }
-
-    // ETC2 RGB memang kompatibel dengan ETC RGB4.
-    if (n.Contains("ETC2_RGB"))
-    {
-        TryAddFormat(
-            attempts,
-            "ETC_RGB4");
-
-        return;
-    }
-
-    if (n.Contains("ETC_RGB4"))
-    {
-        TryAddFormat(
-            attempts,
-            "ETC2_RGB");
-
-        return;
-    }
-
     // ETC2 RGBA1 mempunyai format alpha 1-bit.
     // Jangan diturunkan menjadi ETC RGB biasa.
     if (n.Contains("ETC2_RGBA1"))
