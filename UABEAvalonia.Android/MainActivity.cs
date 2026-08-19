@@ -822,6 +822,40 @@ namespace UABEAvalonia.Android
                         "\nSource: " +
                         source);
                 }
+                
+                // ============================================================
+// RAW ETC2 DEBUG
+// ============================================================
+
+string firstBytes = "";
+
+int dumpCount =
+    Math.Min(
+        data.Length,
+        32);
+
+for (int i = 0; i < dumpCount; i++)
+{
+    firstBytes +=
+        data[i].ToString("X2") + " ";
+}
+
+SetStatus(
+    "=== RAW TEXTURE DEBUG ===\n\n" +
+    "Format: " +
+    format +
+    "\nSize: " +
+    width +
+    "x" +
+    height +
+    "\nData Length: " +
+    data.Length +
+    "\nSource: " +
+    source +
+    "\n\nFirst " +
+    dumpCount +
+    " bytes:\n" +
+    firstBytes);
 
                 UniversalDecodeResult result =
                     DecodeTextureUniversal(
