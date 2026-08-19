@@ -16,13 +16,17 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Show project files
+      - name: Find ASTC Inspector project
         shell: bash
         run: |
           echo "======================================"
-          echo "PROJECT FILES"
+          echo "SEARCH ASTC INSPECTOR PROJECT"
           echo "======================================"
-          find . -maxdepth 4 -type f | sort
+
+          find . \
+            -type f \
+            -name "ASTCInspector.csproj" \
+            -print
 
       - name: Build ASTC Inspector
         shell: bash
@@ -31,18 +35,34 @@ jobs:
           echo "BUILD ASTC INSPECTOR"
           echo "======================================"
 
-          dotnet restore ASTCInspector/ASTCInspector.csproj
+          PROJECT=$(find . \
+            -type f \
+            -name "ASTCInspector.csproj" \
+            | head -n 1)
+
+          if [ -z "$PROJECT" ]; then
+            echo "ERROR: ASTCInspector.csproj tidak ditemukan."
+            echo ""
+            echo "Daftar file project:"
+            find . -type f -name "*.csproj" -print
+            exit 1
+          fi
+
+          echo "Project ditemukan:"
+          echo "$PROJECT"
+
+          dotnet restore "$PROJECT"
 
           dotnet build \
-            ASTCInspector/ASTCInspector.csproj \
+            "$PROJECT" \
             -c Release \
             --no-restore
 
-      - name: Locate AssetsTools.NET.Texture.dll
+      - name: Find AssetsTools.NET.Texture.dll
         shell: bash
         run: |
           echo "======================================"
-          echo "SEARCH DLL"
+          echo "SEARCH AssetsTools.NET.Texture.dll"
           echo "======================================"
 
           find . \
@@ -50,46 +70,49 @@ jobs:
             -name "AssetsTools.NET.Texture.dll" \
             -print
 
-      - name: Prepare DLL
+      - name: Run ASTC Inspector
         shell: bash
         run: |
           echo "======================================"
-          echo "PREPARE DLL"
+          echo "RUN ASTC INSPECTOR"
           echo "======================================"
+
+          PROJECT=$(find . \
+            -type f \
+            -name "ASTCInspector.csproj" \
+            | head -n 1)
 
           DLL=$(find . \
             -type f \
             -name "AssetsTools.NET.Texture.dll" \
             | head -n 1)
 
+          if [ -z "$PROJECT" ]; then
+            echo "ERROR: ASTCInspector.csproj tidak ditemukan."
+            exit 1
+          fi
+
           if [ -z "$DLL" ]; then
             echo "ERROR: AssetsTools.NET.Texture.dll tidak ditemukan."
             exit 1
           fi
 
-          echo "DLL ditemukan:"
+          echo "PROJECT:"
+          echo "$PROJECT"
+
+          echo ""
+          echo "DLL:"
           echo "$DLL"
 
-          cp "$DLL" \
-            ASTCInspector/bin/Release/net8.0/AssetsTools.NET.Texture.dll
-
-      - name: Run ASTC Inspector
-        shell: bash
-        run: |
-          echo "======================================"
-          echo "ASSETS TOOLS TEXTURE IL INSPECTOR"
-          echo "======================================"
-
           dotnet run \
-            --project ASTCInspector/ASTCInspector.csproj \
+            --project "$PROJECT" \
             -c Release \
             --no-build \
-            -- \
-            "ASTCInspector/bin/Release/net8.0/AssetsTools.NET.Texture.dll"
+            -- "$DLL"
 
-      - name: Upload inspection result
+      - name: Upload ASTC Inspector
         uses: actions/upload-artifact@v4
         with:
           name: ASTC-Inspector-Result
           path: |
-            ASTCInspector/bin/Release/net8.0/
+            .
