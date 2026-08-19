@@ -1384,6 +1384,14 @@ namespace UABEAvalonia.Android
                     width,
                     height,
                     true);
+            SetStatus(
+    "ETC DIAGNOSTIC\n" +
+    "Format: " + format + "\n" +
+    "Size: " + width + "x" + height + "\n" +
+    "Encoded: " + data.Length + "\n" +
+    "Decoded: " + bgra.Length + "\n\n" +
+    "First 64 decoded bytes:\n" +
+    FirstBytes(bgra, 64));
 
             if (bgra == null ||
                 bgra.Length < width * height * 4)
