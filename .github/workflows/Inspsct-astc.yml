@@ -1,140 +1,1067 @@
-name: Inspect ASTC Texture Decoder
+using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
+using System.Reflection.Emit;
+using System.Collections.Generic;
 
-on:
-  workflow_dispatch:
+class Program
+{
+    // ================================================================
+    // TEXTURE FORMAT MAP
+    // ================================================================
 
-jobs:
-  inspect-astc:
-    runs-on: ubuntu-latest
+    static readonly Dictionary<int, string> TextureFormats =
+        new Dictionary<int, string>
+        {
+            { 48, "ASTC_RGB_4x4" },
+            { 49, "ASTC_RGB_5x5" },
+            { 50, "ASTC_RGB_6x6" },
+            { 51, "ASTC_RGB_8x8" },
+            { 52, "ASTC_RGB_10x10" },
+            { 53, "ASTC_RGB_12x12" },
 
-    steps:
-      # ============================================================
-      # 1. CHECKOUT REPOSITORY
-      # ============================================================
-      - name: Checkout repository
-        uses: actions/checkout@v4
+            { 54, "ASTC_RGBA_4x4" },
+            { 55, "ASTC_RGBA_5x5" },
+            { 56, "ASTC_RGBA_6x6" },
+            { 57, "ASTC_RGBA_8x8" },
+            { 58, "ASTC_RGBA_10x10" },
+            { 59, "ASTC_RGBA_12x12" },
 
-      # ============================================================
-      # 2. SETUP .NET
-      # ============================================================
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '8.0.x'
+            { 66, "ASTC_HDR_4x4" },
+            { 67, "ASTC_HDR_5x5" },
+            { 68, "ASTC_HDR_6x6" },
+            { 69, "ASTC_HDR_8x8" },
+            { 70, "ASTC_HDR_10x10" },
+            { 71, "ASTC_HDR_12x12" }
+        };
 
-      # ============================================================
-      # 3. CEK FILE INSPECTOR
-      # ============================================================
-      - name: Check ASTC Inspector
-        shell: bash
-        run: |
-          echo "======================================"
-          echo "ASTC INSPECTOR"
-          echo "======================================"
+    static void Main(string[] args)
+    {
+        Console.WriteLine("======================================");
+        Console.WriteLine("ASSETS TOOLS TEXTURE ASTC INSPECTOR");
+        Console.WriteLine("======================================");
 
-          echo ""
-          echo "Mencari ASTCInspector.csproj..."
-          find . -iname "ASTCInspector.csproj" -print
+        string dllPath =
+            args.Length > 0
+                ? args[0]
+                : Path.Combine(
+                    Directory.GetCurrentDirectory(),
+                    "AssetsTools.NET.Texture.dll");
 
-          echo ""
-          echo "Mencari Program.cs..."
-          find . -path "*/ASTCInspector/*" -name "Program.cs" -print
+        Console.WriteLine();
+        Console.WriteLine("DLL:");
+        Console.WriteLine(dllPath);
 
-          echo ""
-          echo "Mencari AssetsTools.NET.Texture.dll..."
-          find . -iname "AssetsTools.NET.Texture.dll" -print
+        if (!File.Exists(dllPath))
+        {
+            Console.WriteLine();
+            Console.WriteLine("❌ DLL TIDAK DITEMUKAN");
+            Console.WriteLine(
+                "Current Directory: " +
+                Directory.GetCurrentDirectory());
 
-      # ============================================================
-      # 4. BUILD ASTC INSPECTOR
-      # ============================================================
-      - name: Build ASTC Inspector
-        shell: bash
-        run: |
-          set -e
+            return;
+        }
 
-          PROJECT=$(find . -iname "ASTCInspector.csproj" | head -n 1)
+        try
+        {
+            Assembly asm =
+                Assembly.LoadFrom(dllPath);
 
-          if [ -z "$PROJECT" ]; then
-            echo "❌ ASTCInspector.csproj tidak ditemukan!"
-            exit 1
-          fi
+            Console.WriteLine();
+            Console.WriteLine("Assembly:");
+            Console.WriteLine(asm.FullName);
 
-          echo "Project ditemukan:"
-          echo "$PROJECT"
+            Type[] types;
 
-          dotnet restore "$PROJECT"
-          dotnet build "$PROJECT" \
-            --configuration Release \
-            --no-restore
+            try
+            {
+                types = asm.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                types =
+                    ex.Types
+                        .Where(t => t != null)
+                        .Cast<Type>()
+                        .ToArray();
 
-      # ============================================================
-      # 5. CARI DLL
-      # ============================================================
-      - name: Locate Texture DLL
-        shell: bash
-        run: |
-          set -e
+                Console.WriteLine();
+                Console.WriteLine("WARNING: beberapa type gagal dimuat.");
 
-          DLL=$(find . -iname "AssetsTools.NET.Texture.dll" | head -n 1)
+                foreach (Exception? error
+                         in ex.LoaderExceptions ?? Array.Empty<Exception>())
+                {
+                    Console.WriteLine(
+                        error?.Message);
+                }
+            }
 
-          if [ -z "$DLL" ]; then
-            echo "❌ AssetsTools.NET.Texture.dll tidak ditemukan!"
-            exit 1
-          fi
+            // ========================================================
+            // 1. TEXTURE FORMAT MAP
+            // ========================================================
 
-          echo "DLL ditemukan:"
-          echo "$DLL"
+            PrintAstcFormatMap();
 
-          echo "$DLL" > texture_dll_path.txt
+            // ========================================================
+            // 2. CARI DecodeManaged
+            // ========================================================
 
-      # ============================================================
-      # 6. JALANKAN ASTC INSPECTOR
-      # ============================================================
-      - name: Run ASTC Inspector
-        shell: bash
-        run: |
-          set -e
+            Console.WriteLine();
+            Console.WriteLine("======================================");
+            Console.WriteLine("DecodeManaged()");
+            Console.WriteLine("======================================");
 
-          PROJECT=$(find . -iname "ASTCInspector.csproj" | head -n 1)
-          DLL=$(cat texture_dll_path.txt)
+            Type? textureFileType =
+                types.FirstOrDefault(
+                    t =>
+                        t.FullName ==
+                        "AssetsTools.NET.Texture.TextureFile");
 
-          echo "======================================"
-          echo "MENJALANKAN ASTC INSPECTOR"
-          echo "======================================"
+            if (textureFileType == null)
+            {
+                Console.WriteLine(
+                    "❌ TextureFile tidak ditemukan.");
 
-          echo ""
-          echo "Project:"
-          echo "$PROJECT"
+                return;
+            }
 
-          echo ""
-          echo "DLL:"
-          echo "$DLL"
+            MethodInfo? decodeManaged =
+                textureFileType.GetMethod(
+                    "DecodeManaged",
+                    BindingFlags.Public |
+                    BindingFlags.NonPublic |
+                    BindingFlags.Static |
+                    BindingFlags.Instance);
 
-          mkdir -p inspector-output
+            if (decodeManaged == null)
+            {
+                Console.WriteLine(
+                    "❌ DecodeManaged tidak ditemukan.");
 
-          dotnet run \
-            --project "$PROJECT" \
-            --configuration Release \
-            --no-build \
-            -- "$DLL" \
-            > inspector-output/astc-inspector.txt 2>&1
+                return;
+            }
 
-          echo ""
-          echo "======================================"
-          echo "HASIL INSPECTION"
-          echo "======================================"
+            PrintSignature(decodeManaged);
 
-          cat inspector-output/astc-inspector.txt
+            // ========================================================
+            // 3. DUMP IL + RESOLVE METHOD TOKEN
+            // ========================================================
 
-      # ============================================================
-      # 7. SIMPAN HASIL SEBAGAI ARTIFACT
-      # ============================================================
-      - name: Upload ASTC Inspector Report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: astc-inspector-report
-          path: |
-            inspector-output/
-            texture_dll_path.txt
-          if-no-files-found: warn
+            Console.WriteLine();
+            Console.WriteLine("======================================");
+            Console.WriteLine("DecodeManaged IL + METHOD RESOLUTION");
+            Console.WriteLine("======================================");
+
+            DumpIL(
+                decodeManaged);
+
+            // ========================================================
+            // 4. CARI SEMUA DECODER
+            // ========================================================
+
+            Console.WriteLine();
+            Console.WriteLine("======================================");
+            Console.WriteLine("SEMUA TEXTURE DECODER");
+            Console.WriteLine("======================================");
+
+            PrintDecoderMethods(
+                types);
+
+            // ========================================================
+            // 5. KHUSUS ASTC
+            // ========================================================
+
+            Console.WriteLine();
+            Console.WriteLine("======================================");
+            Console.WriteLine("ASTC DECODER METHODS");
+            Console.WriteLine("======================================");
+
+            PrintAstcMethods(
+                types);
+
+            // ========================================================
+            // 6. ANALISIS FORMAT ASTC
+            // ========================================================
+
+            Console.WriteLine();
+            Console.WriteLine("======================================");
+            Console.WriteLine("ANALISIS ASTC FORMAT");
+            Console.WriteLine("======================================");
+
+            PrintAstcAnalysis(
+                decodeManaged);
+
+            // ========================================================
+            // SELESAI
+            // ========================================================
+
+            Console.WriteLine();
+            Console.WriteLine("======================================");
+            Console.WriteLine("INSPEKSI SELESAI");
+            Console.WriteLine("======================================");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine();
+            Console.WriteLine("❌ ERROR:");
+            Console.WriteLine(ex);
+        }
+    }
+
+    // ================================================================
+    // ASTC FORMAT MAP
+    // ================================================================
+
+    static void PrintAstcFormatMap()
+    {
+        Console.WriteLine();
+        Console.WriteLine("======================================");
+        Console.WriteLine("ASTC TEXTURE FORMAT MAP");
+        Console.WriteLine("======================================");
+
+        foreach (var item in TextureFormats)
+        {
+            Console.WriteLine(
+                "Format ID " +
+                item.Key +
+                " = " +
+                item.Value);
+        }
+    }
+
+    // ================================================================
+    // SIGNATURE
+    // ================================================================
+
+    static void PrintSignature(
+        MethodInfo method)
+    {
+        Console.WriteLine();
+        Console.WriteLine(
+            "[METHOD] " +
+            method.DeclaringType?.FullName +
+            "." +
+            method.Name);
+
+        Console.WriteLine(
+            "Return: " +
+            method.ReturnType.FullName);
+
+        Console.WriteLine(
+            "Static: " +
+            method.IsStatic);
+
+        Console.WriteLine(
+            "Visibility: " +
+            GetVisibility(method));
+
+        Console.WriteLine(
+            "Parameters:");
+
+        foreach (ParameterInfo p
+                 in method.GetParameters())
+        {
+            Console.WriteLine(
+                "  " +
+                p.Position +
+                ": " +
+                p.ParameterType.FullName +
+                " " +
+                p.Name);
+        }
+    }
+
+    // ================================================================
+    // VISIBILITY
+    // ================================================================
+
+    static string GetVisibility(
+        MethodInfo method)
+    {
+        if (method.IsPublic)
+            return "public";
+
+        if (method.IsPrivate)
+            return "private";
+
+        if (method.IsFamily)
+            return "protected";
+
+        if (method.IsAssembly)
+            return "internal";
+
+        return "other";
+    }
+
+    // ================================================================
+    // DUMP IL
+    // ================================================================
+
+    static void DumpIL(
+        MethodInfo method)
+    {
+        Console.WriteLine();
+        Console.WriteLine(
+            "----- IL START -----");
+
+        MethodBody? body;
+
+        try
+        {
+            body =
+                method.GetMethodBody();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(
+                "GetMethodBody gagal: " +
+                ex.Message);
+
+            return;
+        }
+
+        if (body == null)
+        {
+            Console.WriteLine(
+                "Method tidak memiliki IL body.");
+
+            Console.WriteLine(
+                "----- IL END -----");
+
+            return;
+        }
+
+        byte[] il =
+            body.GetILAsByteArray()
+            ?? Array.Empty<byte>();
+
+        Console.WriteLine(
+            "IL Length: " +
+            il.Length);
+
+        Console.WriteLine();
+
+        Module module =
+            method.Module;
+
+        int position = 0;
+
+        while (position < il.Length)
+        {
+            int offset =
+                position;
+
+            ushort value =
+                il[position++];
+
+            OpCode opcode;
+
+            if (value == 0xFE)
+            {
+                if (position >= il.Length)
+                    break;
+
+                ushort second =
+                    il[position++];
+
+                short twoByte =
+                    unchecked(
+                        (short)(
+                            0xFE00 |
+                            second));
+
+                if (!TwoByteOpCodes.TryGetValue(
+                        twoByte,
+                        out opcode))
+                {
+                    Console.WriteLine(
+                        offset.ToString("X4") +
+                        ": UNKNOWN");
+
+                    continue;
+                }
+            }
+            else
+            {
+                if (!OneByteOpCodes.TryGetValue(
+                        (short)value,
+                        out opcode))
+                {
+                    Console.WriteLine(
+                        offset.ToString("X4") +
+                        ": UNKNOWN");
+
+                    continue;
+                }
+            }
+
+            object? operand = null;
+
+            try
+            {
+                operand =
+                    ReadOperand(
+                        opcode,
+                        il,
+                        ref position,
+                        module);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(
+                    offset.ToString("X4") +
+                    ": " +
+                    opcode.Name +
+                    " [operand error: " +
+                    ex.Message +
+                    "]");
+
+                break;
+            }
+
+            Console.WriteLine(
+                offset.ToString("X4") +
+                ": " +
+                opcode.Name +
+                (
+                    operand != null
+                        ? " " + operand
+                        : ""
+                ));
+        }
+
+        Console.WriteLine(
+            "----- IL END -----");
+    }
+
+    // ================================================================
+    // OPERAND READER
+    // ================================================================
+
+    static object? ReadOperand(
+        OpCode opcode,
+        byte[] il,
+        ref int position,
+        Module module)
+    {
+        switch (opcode.OperandType)
+        {
+            case OperandType.InlineNone:
+                return null;
+
+            case OperandType.ShortInlineI:
+                return
+                    (sbyte)il[position++];
+
+            case OperandType.InlineI:
+                {
+                    int value =
+                        BitConverter.ToInt32(
+                            il,
+                            position);
+
+                    position += 4;
+
+                    return value;
+                }
+
+            case OperandType.InlineI8:
+                {
+                    long value =
+                        BitConverter.ToInt64(
+                            il,
+                            position);
+
+                    position += 8;
+
+                    return value;
+                }
+
+            case OperandType.ShortInlineR:
+                {
+                    float value =
+                        BitConverter.ToSingle(
+                            il,
+                            position);
+
+                    position += 4;
+
+                    return value;
+                }
+
+            case OperandType.InlineR:
+                {
+                    double value =
+                        BitConverter.ToDouble(
+                            il,
+                            position);
+
+                    position += 8;
+
+                    return value;
+                }
+
+            case OperandType.ShortInlineBrTarget:
+                {
+                    sbyte delta =
+                        (sbyte)il[position++];
+
+                    int target =
+                        position + delta;
+
+                    return
+                        "IL_" +
+                        target.ToString("X4");
+                }
+
+            case OperandType.InlineBrTarget:
+                {
+                    int delta =
+                        BitConverter.ToInt32(
+                            il,
+                            position);
+
+                    position += 4;
+
+                    int target =
+                        position + delta;
+
+                    return
+                        "IL_" +
+                        target.ToString("X4");
+                }
+
+            case OperandType.ShortInlineVar:
+                return
+                    "var_" +
+                    il[position++];
+
+            case OperandType.InlineVar:
+                {
+                    ushort index =
+                        BitConverter.ToUInt16(
+                            il,
+                            position);
+
+                    position += 2;
+
+                    return
+                        "var_" +
+                        index;
+                }
+
+            case OperandType.InlineString:
+                {
+                    int token =
+                        BitConverter.ToInt32(
+                            il,
+                            position);
+
+                    position += 4;
+
+                    try
+                    {
+                        return
+                            "\"" +
+                            module.ResolveString(token) +
+                            "\"";
+                    }
+                    catch
+                    {
+                        return
+                            "stringToken=0x" +
+                            token.ToString("X8");
+                    }
+                }
+
+            case OperandType.InlineMethod:
+                {
+                    int token =
+                        BitConverter.ToInt32(
+                            il,
+                            position);
+
+                    position += 4;
+
+                    return ResolveMethodToken(
+                        module,
+                        token);
+                }
+
+            case OperandType.InlineField:
+                {
+                    int token =
+                        BitConverter.ToInt32(
+                            il,
+                            position);
+
+                    position += 4;
+
+                    try
+                    {
+                        FieldInfo? field =
+                            module.ResolveField(
+                                token);
+
+                        if (field != null)
+                        {
+                            return
+                                "FIELD " +
+                                field.DeclaringType?.FullName +
+                                "." +
+                                field.Name;
+                        }
+                    }
+                    catch
+                    {
+                    }
+
+                    return
+                        "fieldToken=0x" +
+                        token.ToString("X8");
+                }
+
+            case OperandType.InlineType:
+                {
+                    int token =
+                        BitConverter.ToInt32(
+                            il,
+                            position);
+
+                    position += 4;
+
+                    try
+                    {
+                        Type? type =
+                            module.ResolveType(
+                                token);
+
+                        if (type != null)
+                            return
+                                "TYPE " +
+                                type.FullName;
+                    }
+                    catch
+                    {
+                    }
+
+                    return
+                        "typeToken=0x" +
+                        token.ToString("X8");
+                }
+
+            case OperandType.InlineTok:
+                {
+                    int token =
+                        BitConverter.ToInt32(
+                            il,
+                            position);
+
+                    position += 4;
+
+                    try
+                    {
+                        MemberInfo? member =
+                            module.ResolveMember(
+                                token);
+
+                        if (member != null)
+                        {
+                            return
+                                "TOKEN " +
+                                member.DeclaringType?.FullName +
+                                "." +
+                                member.Name;
+                        }
+                    }
+                    catch
+                    {
+                    }
+
+                    return
+                        "token=0x" +
+                        token.ToString("X8");
+                }
+
+            case OperandType.InlineSwitch:
+                {
+                    int count =
+                        BitConverter.ToInt32(
+                            il,
+                            position);
+
+                    position += 4;
+
+                    int basePosition =
+                        position +
+                        count * 4;
+
+                    List<string> targets =
+                        new List<string>();
+
+                    for (int i = 0;
+                         i < count;
+                         i++)
+                    {
+                        int delta =
+                            BitConverter.ToInt32(
+                                il,
+                                position);
+
+                        position += 4;
+
+                        int target =
+                            basePosition +
+                            delta;
+
+                        targets.Add(
+                            "IL_" +
+                            target.ToString("X4"));
+                    }
+
+                    return
+                        "[" +
+                        string.Join(
+                            ", ",
+                            targets) +
+                        "]";
+                }
+
+            default:
+                return
+                    "[unsupported operand]";
+        }
+    }
+
+    // ================================================================
+    // METHOD TOKEN RESOLVER
+    // ================================================================
+
+    static string ResolveMethodToken(
+        Module module,
+        int token)
+    {
+        try
+        {
+            MethodBase? method =
+                module.ResolveMethod(token);
+
+            if (method != null)
+            {
+                string declaring =
+                    method.DeclaringType?.FullName
+                    ?? "<unknown>";
+
+                string parameters =
+                    string.Join(
+                        ", ",
+                        method.GetParameters()
+                            .Select(
+                                p =>
+                                    p.ParameterType.FullName
+                                    ?? "?"));
+
+                return
+                    "METHOD 0x" +
+                    token.ToString("X8") +
+                    " => " +
+                    declaring +
+                    "." +
+                    method.Name +
+                    "(" +
+                    parameters +
+                    ")";
+            }
+        }
+        catch (Exception ex)
+        {
+            return
+                "METHOD 0x" +
+                token.ToString("X8") +
+                " => RESOLVE ERROR: " +
+                ex.Message;
+        }
+
+        return
+            "METHOD 0x" +
+            token.ToString("X8");
+    }
+
+    // ================================================================
+    // DECODER METHODS
+    // ================================================================
+
+    static void PrintDecoderMethods(
+        Type[] types)
+    {
+        foreach (Type type in types
+                     .OrderBy(t => t.FullName))
+        {
+            MethodInfo[] methods;
+
+            try
+            {
+                methods =
+                    type.GetMethods(
+                        BindingFlags.Public |
+                        BindingFlags.NonPublic |
+                        BindingFlags.Static |
+                        BindingFlags.Instance |
+                        BindingFlags.DeclaredOnly);
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (MethodInfo method in methods)
+            {
+                string name =
+                    method.Name;
+
+                string full =
+                    (type.FullName ?? "") +
+                    "." +
+                    name;
+
+                if (
+                    name.IndexOf(
+                        "Read",
+                        StringComparison.OrdinalIgnoreCase) < 0
+                    &&
+                    name.IndexOf(
+                        "Decode",
+                        StringComparison.OrdinalIgnoreCase) < 0)
+                {
+                    continue;
+                }
+
+                if (
+                    full.IndexOf(
+                        "Texture",
+                        StringComparison.OrdinalIgnoreCase) >= 0
+                    ||
+                    full.IndexOf(
+                        "Decoder",
+                        StringComparison.OrdinalIgnoreCase) >= 0
+                    ||
+                    full.IndexOf(
+                        "ASTC",
+                        StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    Console.WriteLine();
+                    Console.WriteLine(
+                        "[DECODER] " +
+                        full);
+
+                    PrintSignature(method);
+                }
+            }
+        }
+    }
+
+    // ================================================================
+    // ASTC METHODS
+    // ================================================================
+
+    static void PrintAstcMethods(
+        Type[] types)
+    {
+        bool found = false;
+
+        foreach (Type type in types
+                     .OrderBy(t => t.FullName))
+        {
+            MethodInfo[] methods;
+
+            try
+            {
+                methods =
+                    type.GetMethods(
+                        BindingFlags.Public |
+                        BindingFlags.NonPublic |
+                        BindingFlags.Static |
+                        BindingFlags.Instance |
+                        BindingFlags.DeclaredOnly);
+            }
+            catch
+            {
+                continue;
+            }
+
+            foreach (MethodInfo method in methods)
+            {
+                string full =
+                    (type.FullName ?? "") +
+                    "." +
+                    method.Name;
+
+                if (
+                    full.IndexOf(
+                        "ASTC",
+                        StringComparison.OrdinalIgnoreCase) >= 0)
+                {
+                    found = true;
+
+                    Console.WriteLine();
+                    Console.WriteLine(
+                        "[ASTC] " +
+                        full);
+
+                    PrintSignature(method);
+
+                    DumpIL(method);
+                }
+            }
+        }
+
+        if (!found)
+        {
+            Console.WriteLine();
+            Console.WriteLine(
+                "⚠ Tidak ditemukan method dengan nama ASTC.");
+        }
+    }
+
+    // ================================================================
+    // ASTC ANALYSIS
+    // ================================================================
+
+    static void PrintAstcAnalysis(
+        MethodInfo decodeManaged)
+    {
+        Console.WriteLine();
+        Console.WriteLine(
+            "DecodeManaged menerima:");
+
+        Console.WriteLine(
+            "data   = Byte[]");
+
+        Console.WriteLine(
+            "format = TextureFormat");
+
+        Console.WriteLine(
+            "width  = Int32");
+
+        Console.WriteLine(
+            "height = Int32");
+
+        Console.WriteLine(
+            "useBgra = Boolean");
+
+        Console.WriteLine();
+
+        Console.WriteLine(
+            "Format ASTC yang harus kita lacak:");
+
+        foreach (var item in TextureFormats)
+        {
+            Console.WriteLine(
+                item.Key +
+                " -> " +
+                item.Value);
+        }
+
+        Console.WriteLine();
+
+        Console.WriteLine(
+            "CATATAN:");
+
+        Console.WriteLine(
+            "IL switch DecodeManaged() menggunakan");
+        Console.WriteLine(
+            "(format - 1) sebagai index switch.");
+
+        Console.WriteLine();
+
+        Console.WriteLine(
+            "Karena itu:");
+        Console.WriteLine(
+            "ASTC_RGB_8x8 = Format 51");
+        Console.WriteLine(
+            "switch index = 50");
+
+        Console.WriteLine(
+            "ASTC_RGBA_8x8 = Format 57");
+        Console.WriteLine(
+            "switch index = 56");
+
+        Console.WriteLine(
+            "ASTC_HDR_8x8 = Format 69");
+        Console.WriteLine(
+            "switch index = 68");
+
+        Console.WriteLine();
+
+        Console.WriteLine(
+            "Target branch harus dicocokkan dengan IL");
+        Console.WriteLine(
+            "DecodeManaged() di atas.");
+    }
+
+    // ================================================================
+    // OPCODE TABLES
+    // ================================================================
+
+    static readonly Dictionary<short, OpCode>
+        OneByteOpCodes =
+            BuildOneByteOpCodes();
+
+    static readonly Dictionary<short, OpCode>
+        TwoByteOpCodes =
+            BuildTwoByteOpCodes();
+
+    static Dictionary<short, OpCode>
+        BuildOneByteOpCodes()
+    {
+        Dictionary<short, OpCode> result =
+            new Dictionary<short, OpCode>();
+
+        foreach (FieldInfo field
+                 in typeof(OpCodes).GetFields(
+                     BindingFlags.Public |
+                     BindingFlags.Static))
+        {
+            if (field.GetValue(null)
+                is OpCode opcode)
+            {
+                short value =
+                    opcode.Value;
+
+                if ((value & 0xFF00) == 0)
+                    result[value] =
+                        opcode;
+            }
+        }
+
+        return result;
+    }
+
+    static Dictionary<short, OpCode>
+        BuildTwoByteOpCodes()
+    {
+        Dictionary<short, OpCode> result =
+            new Dictionary<short, OpCode>();
+
+        foreach (FieldInfo field
+                 in typeof(OpCodes).GetFields(
+                     BindingFlags.Public |
+                     BindingFlags.Static))
+        {
+            if (field.GetValue(null)
+                is OpCode opcode)
+            {
+                short value =
+                    opcode.Value;
+
+                if ((value & 0xFF00) == unchecked((short)0xFE00))
+                    result[value] =
+                        opcode;
+            }
+        }
+
+        return result;
+    }
+}
