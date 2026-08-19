@@ -1,8 +1,14 @@
 using Android.App;
 using Android.Content.PM;
+using Android;
 using Avalonia;
 using Avalonia.Android;
-using UABEAvalonia; // Menghubungkan ke logika utama UABEA
+using UABEAvalonia;
+
+// Menyuntikkan izin penyimpanan langsung via kode C# tanpa membutuhkan AndroidManifest.xml
+[assembly: UsesPermission(Manifest.Permission.ReadExternalStorage)]
+[assembly: UsesPermission(Manifest.Permission.WriteExternalStorage)]
+[assembly: UsesPermission(Manifest.Permission.ManageExternalStorage)]
 
 namespace AVALONIAAndroid;
 
@@ -15,7 +21,6 @@ public class MainActivity : AvaloniaMainActivity<App>
 {
     protected override AppBuilder CustomizeAppBuilder(AppBuilder builder)
     {
-        // Menghapus .WithInterFont() agar tidak bentrok dengan versi Avalonia UABEA lama
         return base.CustomizeAppBuilder(builder);
     }
 }
