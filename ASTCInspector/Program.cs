@@ -10,7 +10,7 @@ class Program
     static void Main(string[] args)
     {
         Console.WriteLine("======================================");
-        Console.WriteLine("ASSETS TOOLS TEXTURE IL INSPECTOR");
+        Console.WriteLine("ASTC INSPECTOR");
         Console.WriteLine("======================================");
 
         string dllPath =
@@ -23,33 +23,23 @@ class Program
         Console.WriteLine();
         Console.WriteLine("DLL:");
         Console.WriteLine(dllPath);
-        Console.WriteLine();
 
         if (!File.Exists(dllPath))
         {
-            Console.WriteLine("ERROR:");
-            Console.WriteLine("DLL tidak ditemukan.");
             Console.WriteLine();
-
-            Console.WriteLine(
-                "Current Directory: " +
-                Directory.GetCurrentDirectory());
-
+            Console.WriteLine("ERROR: DLL tidak ditemukan.");
             return;
         }
+
+        string reportPath =
+            Path.Combine(
+                Directory.GetCurrentDirectory(),
+                "astc-report.txt");
 
         try
         {
             Assembly asm =
                 Assembly.LoadFrom(dllPath);
-
-            Console.WriteLine("Assembly:");
-            Console.WriteLine(asm.FullName);
-
-            Console.WriteLine();
-            Console.WriteLine("======================================");
-            Console.WriteLine("MENCARI METHOD PENTING");
-            Console.WriteLine("======================================");
 
             Type[] types;
 
@@ -59,138 +49,316 @@ class Program
             }
             catch (ReflectionTypeLoadException ex)
             {
-                types =
-                    ex.Types
-                      .Where(t => t != null)
-                      .Cast<Type>()
-                      .ToArray();
-
-                Console.WriteLine();
-                Console.WriteLine("WARNING: beberapa type gagal dimuat.");
-
-                foreach (Exception loaderError in
-                         ex.LoaderExceptions ?? Array.Empty<Exception>())
-                {
-                    Console.WriteLine(
-                        loaderError?.Message);
-                }
+                types = ex.Types
+                    .Where(t => t != null)
+                    .Cast<Type>()
+                    .ToArray();
             }
 
+            using StreamWriter report =
+                new StreamWriter(reportPath, false);
+
+            Write(report,
+                "======================================");
+            Write(report,
+                "ASSETS TOOLS.NET TEXTURE ASTC REPORT");
+            Write(report,
+                "======================================");
+
+            Write(report, "");
+            Write(report, "DLL:");
+            Write(report, dllPath);
+
+            Write(report, "");
+            Write(report, "ASSEMBLY:");
+            Write(report, asm.FullName ?? "");
+
             // ========================================================
-            // 1. TAMPILKAN SEMUA METHOD YANG BERKAITAN DENGAN
-            //    DECODE / ASTC / TEXTURE
+            // TEXTURE FORMAT ENUM
             // ========================================================
 
-            foreach (Type type in types
-                     .OrderBy(t => t.FullName))
+            Write(report, "");
+            Write(report,
+                "======================================");
+            Write(report,
+                "TEXTURE FORMAT ENUM");
+            Write(report,
+                "======================================");
+
+            Type? textureFormat =
+                types.FirstOrDefault(
+                    t =>
+                        t.FullName ==
+                        "AssetsTools.NET.Texture.TextureFormat");
+
+            Dictionary<int, string> enumValues =
+                new Dictionary<int, string>();
+
+            if (textureFormat != null &&
+                textureFormat.IsEnum)
             {
-                MethodInfo[] methods;
-
-                try
+                foreach (object value
+                         in Enum.GetValues(textureFormat))
                 {
-                    methods =
-                        type.GetMethods(
-                            BindingFlags.Public |
-                            BindingFlags.NonPublic |
-                            BindingFlags.Static |
-                            BindingFlags.Instance |
-                            BindingFlags.DeclaredOnly);
+                    int number =
+                        Convert.ToInt32(value);
+
+                    string name =
+                        Enum.GetName(
+                            textureFormat,
+                            value) ?? value.ToString();
+
+                    enumValues[number] = name;
+
+                    Write(
+                        report,
+                        $"{number} = {name}");
                 }
-                catch
-                {
-                    continue;
-                }
+            }
+            else
+            {
+                Write(
+                    report,
+                    "TextureFormat enum tidak ditemukan.");
+            }
 
-                foreach (MethodInfo method in methods)
-                {
-                    string text =
-                        (type.FullName ?? "") +
-                        " " +
-                        method.Name;
+            // ========================================================
+            // ASTC ENUM
+            // ========================================================
 
-                    if (text.IndexOf(
-                            "Decode",
-                            StringComparison.OrdinalIgnoreCase) >= 0
-                        ||
-                        text.IndexOf(
+            Write(report, "");
+            Write(report,
+                "======================================");
+            Write(report,
+                "ASTC FORMATS");
+            Write(report,
+                "======================================");
+
+            List<KeyValuePair<int, string>> astcFormats =
+                enumValues
+                    .Where(x =>
+                        x.Value.IndexOf(
                             "ASTC",
-                            StringComparison.OrdinalIgnoreCase) >= 0
-                        ||
-                        text.IndexOf(
-                            "Texture",
                             StringComparison.OrdinalIgnoreCase) >= 0)
-                    {
-                        Console.WriteLine();
-                        Console.WriteLine(
-                            "[METHOD] " +
-                            type.FullName +
-                            "." +
-                            method.Name);
+                    .OrderBy(x => x.Key)
+                    .ToList();
 
-                        PrintSignature(method);
-                    }
+            if (astcFormats.Count == 0)
+            {
+                Write(
+                    report,
+                    "Tidak ditemukan enum ASTC.");
+            }
+            else
+            {
+                foreach (var item in astcFormats)
+                {
+                    Write(
+                        report,
+                        $"{item.Key} = {item.Value}");
                 }
             }
 
             // ========================================================
-            // 2. CARI DecodeManaged SECARA KHUSUS
+            // DECODE MANAGED
             // ========================================================
 
-            Console.WriteLine();
-            Console.WriteLine("======================================");
-            Console.WriteLine("DECODEMANAGED IL");
-            Console.WriteLine("======================================");
+            Write(report, "");
+            Write(report,
+                "======================================");
+            Write(report,
+                "DECODEMANAGED");
+            Write(report,
+                "======================================");
 
-            Type textureFileType =
+            Type? textureFile =
                 types.FirstOrDefault(
                     t =>
                         t.FullName ==
                         "AssetsTools.NET.Texture.TextureFile");
 
-            if (textureFileType == null)
+            if (textureFile == null)
             {
-                Console.WriteLine(
+                Write(
+                    report,
                     "TextureFile tidak ditemukan.");
 
+                Finish(report, reportPath);
                 return;
             }
 
-            MethodInfo decodeManaged =
-                textureFileType.GetMethod(
+            MethodInfo? decodeManaged =
+                textureFile.GetMethod(
                     "DecodeManaged",
                     BindingFlags.Public |
                     BindingFlags.NonPublic |
-                    BindingFlags.Static |
-                    BindingFlags.Instance);
+                    BindingFlags.Static);
 
             if (decodeManaged == null)
             {
-                Console.WriteLine(
+                Write(
+                    report,
                     "DecodeManaged tidak ditemukan.");
 
+                Finish(report, reportPath);
                 return;
             }
 
-            Console.WriteLine();
-            Console.WriteLine(
-                "FOUND:");
+            Write(
+                report,
+                "Method: " +
+                decodeManaged.DeclaringType?.FullName +
+                "." +
+                decodeManaged.Name);
 
-            PrintSignature(decodeManaged);
+            Write(
+                report,
+                "Return: " +
+                decodeManaged.ReturnType.FullName);
 
-            DumpIL(
-                decodeManaged);
+            Write(
+                report,
+                "Static: " +
+                decodeManaged.IsStatic);
+
+            Write(report, "Parameters:");
+
+            foreach (ParameterInfo parameter
+                     in decodeManaged.GetParameters())
+            {
+                Write(
+                    report,
+                    $"  {parameter.Position}: " +
+                    $"{parameter.ParameterType.FullName} " +
+                    $"{parameter.Name}");
+            }
 
             // ========================================================
-            // 3. CARI SEMUA METHOD YANG NAMANYA ASTC
+            // SWITCH + METHOD TOKEN
             // ========================================================
 
-            Console.WriteLine();
-            Console.WriteLine("======================================");
-            Console.WriteLine("ASTC METHODS IL");
-            Console.WriteLine("======================================");
+            Write(report, "");
+            Write(report,
+                "======================================");
+            Write(report,
+                "DECODEMANAGED SWITCH");
+            Write(report,
+                "======================================");
 
-            foreach (Type type in types
-                     .OrderBy(t => t.FullName))
+            MethodBody? body =
+                decodeManaged.GetMethodBody();
+
+            if (body == null)
+            {
+                Write(
+                    report,
+                    "DecodeManaged tidak mempunyai IL body.");
+
+                Finish(report, reportPath);
+                return;
+            }
+
+            byte[] il =
+                body.GetILAsByteArray()
+                ?? Array.Empty<byte>();
+
+            Write(
+                report,
+                "IL Length: " +
+                il.Length);
+
+            Module module =
+                decodeManaged.Module;
+
+            int position = 0;
+
+            while (position < il.Length)
+            {
+                int offset = position;
+
+                OpCode opcode;
+
+                ushort value =
+                    il[position++];
+
+                if (value == 0xFE)
+                {
+                    if (position >= il.Length)
+                        break;
+
+                    ushort second =
+                        il[position++];
+
+                    short code =
+                        (short)(
+                            0xFE00 |
+                            second);
+
+                    if (!TwoByteOpCodes.TryGetValue(
+                            code,
+                            out opcode))
+                    {
+                        continue;
+                    }
+                }
+                else
+                {
+                    if (!OneByteOpCodes.TryGetValue(
+                            (short)value,
+                            out opcode))
+                    {
+                        continue;
+                    }
+                }
+
+                object? operand = null;
+
+                try
+                {
+                    operand =
+                        ReadOperand(
+                            opcode,
+                            il,
+                            ref position,
+                            module);
+                }
+                catch
+                {
+                    break;
+                }
+
+                // Hanya tampilkan bagian penting:
+                // switch
+                // call
+                // callvirt
+                // method token
+                if (opcode == OpCodes.Switch ||
+                    opcode == OpCodes.Call ||
+                    opcode == OpCodes.Callvirt)
+                {
+                    Write(
+                        report,
+                        $"{offset:X4}: {opcode.Name} {operand}");
+                }
+            }
+
+            // ========================================================
+            // SEMUA METHOD YANG MENGANDUNG ASTC
+            // ========================================================
+
+            Write(report, "");
+            Write(report,
+                "======================================");
+            Write(report,
+                "ASTC METHODS");
+            Write(report,
+                "======================================");
+
+            bool foundAstcMethod = false;
+
+            foreach (Type type in
+                     types.OrderBy(
+                         t => t.FullName))
             {
                 MethodInfo[] methods;
 
@@ -209,35 +377,80 @@ class Program
                     continue;
                 }
 
-                foreach (MethodInfo method in methods)
+                foreach (MethodInfo method
+                         in methods)
                 {
-                    if (method.Name.IndexOf(
+                    string fullName =
+                        (type.FullName ?? "") +
+                        "." +
+                        method.Name;
+
+                    if (fullName.IndexOf(
                             "ASTC",
-                            StringComparison.OrdinalIgnoreCase) >= 0)
+                            StringComparison.OrdinalIgnoreCase) < 0)
                     {
-                        Console.WriteLine();
-                        Console.WriteLine(
-                            "--------------------------------------");
+                        continue;
+                    }
 
-                        PrintSignature(method);
+                    foundAstcMethod = true;
 
-                        DumpIL(method);
+                    Write(
+                        report,
+                        "");
+
+                    Write(
+                        report,
+                        "[ASTC METHOD] " +
+                        fullName);
+
+                    Write(
+                        report,
+                        "Return: " +
+                        method.ReturnType.FullName);
+
+                    Write(
+                        report,
+                        "Static: " +
+                        method.IsStatic);
+
+                    Write(
+                        report,
+                        "Parameters:");
+
+                    foreach (ParameterInfo parameter
+                             in method.GetParameters())
+                    {
+                        Write(
+                            report,
+                            $"  {parameter.Position}: " +
+                            $"{parameter.ParameterType.FullName} " +
+                            $"{parameter.Name}");
                     }
                 }
             }
 
+            if (!foundAstcMethod)
+            {
+                Write(
+                    report,
+                    "Tidak ada method yang namanya mengandung ASTC.");
+            }
+
             // ========================================================
-            // 4. CARI METHOD YANG MENGANDUNG "READ"
-            //    DAN BERHUBUNGAN DENGAN TEXTURE DECODER
+            // DECODER METHODS
             // ========================================================
 
-            Console.WriteLine();
-            Console.WriteLine("======================================");
-            Console.WriteLine("DECODER METHODS");
-            Console.WriteLine("======================================");
+            Write(report, "");
+            Write(report,
+                "======================================");
+            Write(report,
+                "POTENTIAL DECODER METHODS");
+            Write(report,
+                "======================================");
 
-            foreach (Type type in types
-                     .OrderBy(t => t.FullName))
+            foreach (Type type in
+                     types.OrderBy(
+                         t => t.FullName))
             {
                 MethodInfo[] methods;
 
@@ -256,53 +469,73 @@ class Program
                     continue;
                 }
 
-                foreach (MethodInfo method in methods)
+                foreach (MethodInfo method
+                         in methods)
                 {
                     string name =
                         method.Name;
 
                     if (
                         name.IndexOf(
-                            "Read",
+                            "Decode",
                             StringComparison.OrdinalIgnoreCase) >= 0
                         ||
                         name.IndexOf(
-                            "Decode",
+                            "Read",
                             StringComparison.OrdinalIgnoreCase) >= 0)
                     {
-                        string full =
+                        string fullName =
                             (type.FullName ?? "") +
                             "." +
                             name;
 
                         if (
-                            full.IndexOf(
-                                "Texture",
+                            fullName.IndexOf(
+                                "Decoder",
                                 StringComparison.OrdinalIgnoreCase) >= 0
                             ||
-                            full.IndexOf(
+                            fullName.IndexOf(
                                 "ASTC",
                                 StringComparison.OrdinalIgnoreCase) >= 0
                             ||
-                            full.IndexOf(
-                                "Decoder",
+                            fullName.IndexOf(
+                                "Texture",
                                 StringComparison.OrdinalIgnoreCase) >= 0)
                         {
-                            Console.WriteLine();
-                            Console.WriteLine(
-                                "[DECODER] " +
-                                full);
-
-                            PrintSignature(method);
+                            Write(
+                                report,
+                                fullName);
                         }
                     }
                 }
             }
 
+            // ========================================================
+            // SELESAI
+            // ========================================================
+
+            Write(report, "");
+            Write(report,
+                "======================================");
+            Write(report,
+                "INSPEKSI SELESAI");
+            Write(report,
+                "======================================");
+
+            report.Flush();
+
             Console.WriteLine();
-            Console.WriteLine("======================================");
-            Console.WriteLine("INSPEKSI SELESAI");
-            Console.WriteLine("======================================");
+            Console.WriteLine(
+                "REPORT BERHASIL DIBUAT:");
+
+            Console.WriteLine(
+                reportPath);
+
+            Console.WriteLine();
+            Console.WriteLine(
+                "Silakan ambil artifact:");
+            Console.WriteLine(
+                "astc-report.txt");
         }
         catch (Exception ex)
         {
@@ -313,204 +546,31 @@ class Program
     }
 
     // ================================================================
-    // METHOD SIGNATURE
+    // WRITE
     // ================================================================
 
-    static void PrintSignature(
-        MethodInfo method)
+    static void Write(
+        StreamWriter report,
+        string text)
     {
-        Console.WriteLine(
-            "Return: " +
-            method.ReturnType.FullName);
-
-        Console.WriteLine(
-            "Static: " +
-            method.IsStatic);
-
-        Console.WriteLine(
-            "Visibility: " +
-            GetVisibility(method));
-
-        Console.WriteLine(
-            "Parameters:");
-
-        foreach (ParameterInfo p
-                 in method.GetParameters())
-        {
-            Console.WriteLine(
-                "  " +
-                p.Position +
-                ": " +
-                p.ParameterType.FullName +
-                " " +
-                p.Name);
-        }
+        Console.WriteLine(text);
+        report.WriteLine(text);
     }
 
     // ================================================================
-    // VISIBILITY
+    // FINISH
     // ================================================================
 
-    static string GetVisibility(
-        MethodInfo method)
+    static void Finish(
+        StreamWriter report,
+        string path)
     {
-        if (method.IsPublic)
-            return "public";
+        report.Flush();
 
-        if (method.IsPrivate)
-            return "private";
-
-        if (method.IsFamily)
-            return "protected";
-
-        if (method.IsAssembly)
-            return "internal";
-
-        return "other";
-    }
-
-    // ================================================================
-    // IL DUMPER
-    // ================================================================
-
-    static void DumpIL(
-        MethodInfo method)
-    {
         Console.WriteLine();
         Console.WriteLine(
-            "----- IL START -----");
-
-        MethodBody? body;
-
-        try
-        {
-            body =
-                method.GetMethodBody();
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(
-                "GetMethodBody gagal: " +
-                ex.Message);
-
-            return;
-        }
-
-        if (body == null)
-        {
-            Console.WriteLine(
-                "Method tidak memiliki IL body.");
-
-            Console.WriteLine(
-                "Kemungkinan native / abstract / external.");
-
-            Console.WriteLine(
-                "----- IL END -----");
-
-            return;
-        }
-
-        byte[] il =
-            body.GetILAsByteArray()
-            ?? Array.Empty<byte>();
-
-        Console.WriteLine(
-            "IL Length: " +
-            il.Length);
-
-        Console.WriteLine();
-
-        Module module =
-            method.Module;
-
-        int position = 0;
-
-        while (position < il.Length)
-        {
-            int offset =
-                position;
-
-            ushort value =
-                il[position++];
-
-            OpCode opcode;
-
-            if (value == 0xFE)
-            {
-                if (position >= il.Length)
-                    break;
-
-                ushort second =
-                    il[position++];
-
-                short twoByte =
-                    (short)(
-                        0xFE00 |
-                        second);
-
-                if (!TwoByteOpCodes.TryGetValue(
-                        twoByte,
-                        out opcode))
-                {
-                    Console.WriteLine(
-                        offset.ToString("X4") +
-                        ": UNKNOWN");
-
-                    continue;
-                }
-            }
-            else
-            {
-                if (!OneByteOpCodes.TryGetValue(
-                        (short)value,
-                        out opcode))
-                {
-                    Console.WriteLine(
-                        offset.ToString("X4") +
-                        ": UNKNOWN");
-
-                    continue;
-                }
-            }
-
-            object? operand =
-                null;
-
-            try
-            {
-                operand =
-                    ReadOperand(
-                        opcode,
-                        il,
-                        ref position,
-                        module);
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine(
-                    offset.ToString("X4") +
-                    ": " +
-                    opcode.Name +
-                    " [operand error: " +
-                    ex.Message +
-                    "]");
-
-                break;
-            }
-
-            Console.WriteLine(
-                offset.ToString("X4") +
-                ": " +
-                opcode.Name +
-                (
-                    operand != null
-                        ? " " + operand
-                        : ""
-                ));
-        }
-
-        Console.WriteLine(
-            "----- IL END -----");
+            "REPORT:");
+        Console.WriteLine(path);
     }
 
     // ================================================================
@@ -533,56 +593,62 @@ class Program
                     (sbyte)il[position++];
 
             case OperandType.InlineI:
-                int intValue =
-                    BitConverter.ToInt32(
-                        il,
-                        position);
+                {
+                    int value =
+                        BitConverter.ToInt32(
+                            il,
+                            position);
 
-                position += 4;
+                    position += 4;
 
-                return intValue;
+                    return value;
+                }
 
             case OperandType.InlineI8:
-                long longValue =
-                    BitConverter.ToInt64(
-                        il,
-                        position);
+                {
+                    long value =
+                        BitConverter.ToInt64(
+                            il,
+                            position);
 
-                position += 8;
+                    position += 8;
 
-                return longValue;
+                    return value;
+                }
 
             case OperandType.ShortInlineR:
-                float floatValue =
-                    BitConverter.ToSingle(
-                        il,
-                        position);
+                {
+                    float value =
+                        BitConverter.ToSingle(
+                            il,
+                            position);
 
-                position += 4;
+                    position += 4;
 
-                return floatValue;
+                    return value;
+                }
 
             case OperandType.InlineR:
-                double doubleValue =
-                    BitConverter.ToDouble(
-                        il,
-                        position);
+                {
+                    double value =
+                        BitConverter.ToDouble(
+                            il,
+                            position);
 
-                position += 8;
+                    position += 8;
 
-                return doubleValue;
+                    return value;
+                }
 
             case OperandType.ShortInlineBrTarget:
                 {
                     sbyte delta =
                         (sbyte)il[position++];
 
-                    int target =
-                        position + delta;
-
                     return
                         "IL_" +
-                        target.ToString("X4");
+                        (position + delta)
+                        .ToString("X4");
                 }
 
             case OperandType.InlineBrTarget:
@@ -594,12 +660,10 @@ class Program
 
                     position += 4;
 
-                    int target =
-                        position + delta;
-
                     return
                         "IL_" +
-                        target.ToString("X4");
+                        (position + delta)
+                        .ToString("X4");
                 }
 
             case OperandType.ShortInlineVar:
@@ -608,16 +672,18 @@ class Program
                     il[position++];
 
             case OperandType.InlineVar:
-                ushort varIndex =
-                    BitConverter.ToUInt16(
-                        il,
-                        position);
+                {
+                    ushort index =
+                        BitConverter.ToUInt16(
+                            il,
+                            position);
 
-                position += 2;
+                    position += 2;
 
-                return
-                    "var_" +
-                    varIndex;
+                    return
+                        "var_" +
+                        index;
+                }
 
             case OperandType.InlineString:
                 {
@@ -654,15 +720,20 @@ class Program
 
                     try
                     {
-                        MethodBase? target =
+                        MethodBase? method =
                             module.ResolveMethod(
                                 token);
 
-                        if (target != null)
+                        if (method != null)
+                        {
                             return
-                                target.DeclaringType?.FullName +
+                                method.DeclaringType?.FullName +
                                 "." +
-                                target.Name;
+                                method.Name +
+                                " [0x" +
+                                token.ToString("X8") +
+                                "]";
+                        }
                     }
                     catch
                     {
@@ -689,10 +760,15 @@ class Program
                                 token);
 
                         if (field != null)
+                        {
                             return
                                 field.DeclaringType?.FullName +
                                 "." +
-                                field.Name;
+                                field.Name +
+                                " [0x" +
+                                token.ToString("X8") +
+                                "]";
+                        }
                     }
                     catch
                     {
@@ -720,7 +796,10 @@ class Program
 
                         if (type != null)
                             return
-                                type.FullName;
+                                type.FullName +
+                                " [0x" +
+                                token.ToString("X8") +
+                                "]";
                     }
                     catch
                     {
@@ -750,7 +829,10 @@ class Program
                             return
                                 member.DeclaringType?.FullName +
                                 "." +
-                                member.Name;
+                                member.Name +
+                                " [0x" +
+                                token.ToString("X8") +
+                                "]";
                     }
                     catch
                     {
@@ -788,13 +870,10 @@ class Program
 
                         position += 4;
 
-                        int target =
-                            basePosition +
-                            delta;
-
                         targets.Add(
                             "IL_" +
-                            target.ToString("X4"));
+                            (basePosition + delta)
+                            .ToString("X4"));
                     }
 
                     return
@@ -829,22 +908,19 @@ class Program
         Dictionary<short, OpCode> result =
             new Dictionary<short, OpCode>();
 
-        FieldInfo[] fields =
-            typeof(OpCodes).GetFields(
-                BindingFlags.Public |
-                BindingFlags.Static);
-
-        foreach (FieldInfo field in fields)
+        foreach (FieldInfo field in
+                 typeof(OpCodes).GetFields(
+                     BindingFlags.Public |
+                     BindingFlags.Static))
         {
             if (field.GetValue(null)
                 is OpCode opcode)
             {
                 short value =
-                    (short)opcode.Value;
+                    opcode.Value;
 
                 if ((value & 0xFF00) == 0)
-                    result[value] =
-                        opcode;
+                    result[value] = opcode;
             }
         }
 
@@ -857,22 +933,19 @@ class Program
         Dictionary<short, OpCode> result =
             new Dictionary<short, OpCode>();
 
-        FieldInfo[] fields =
-            typeof(OpCodes).GetFields(
-                BindingFlags.Public |
-                BindingFlags.Static);
-
-        foreach (FieldInfo field in fields)
+        foreach (FieldInfo field in
+                 typeof(OpCodes).GetFields(
+                     BindingFlags.Public |
+                     BindingFlags.Static))
         {
             if (field.GetValue(null)
                 is OpCode opcode)
             {
                 short value =
-                    (short)opcode.Value;
+                    opcode.Value;
 
-                if ((value & 0xFF00) == 0xFE00)
-                    result[value] =
-                        opcode;
+                if ((value & 0xFF00) == unchecked((short)0xFE00))
+                    result[value] = opcode;
             }
         }
 
