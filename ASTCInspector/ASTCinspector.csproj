@@ -1,24 +1,41 @@
-<Project Sdk="Microsoft.NET.Sdk">
+name: Inspect ASTC Project
 
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+on:
+  workflow_dispatch:
 
-  <ItemGroup>
-    <Reference Include="AssetsTools.NET">
-      <HintPath>..\Libs\AssetsTools.NET.dll</HintPath>
-    </Reference>
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
 
-    <Reference Include="AssetsTools.NET.Texture">
-      <HintPath>..\Libs\AssetsTools.NET.Texture.dll</HintPath>
-    </Reference>
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-    <Reference Include="AssetRipper.TextureDecoder">
-      <HintPath>..\Libs\AssetRipper.TextureDecoder.dll</HintPath>
-    </Reference>
-  </ItemGroup>
+      - name: Show repository structure
+        shell: bash
+        run: |
+          echo "======================================"
+          echo "REPOSITORY STRUCTURE"
+          echo "======================================"
 
-</Project>
+          pwd
+
+          echo ""
+          echo "=== CSProj ==="
+          find . -type f -name "*.csproj" -print
+
+          echo ""
+          echo "=== Program.cs ==="
+          find . -type f -name "Program.cs" -print
+
+          echo ""
+          echo "=== ASTC files ==="
+          find . -type f | grep -i "astc" || true
+
+          echo ""
+          echo "=== Texture DLL ==="
+          find . -type f -name "AssetsTools.NET.Texture.dll" -print
+
+          echo ""
+          echo "=== TOP LEVEL ==="
+          find . -maxdepth 2 -type f | sort
