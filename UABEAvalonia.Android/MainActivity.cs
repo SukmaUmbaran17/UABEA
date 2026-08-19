@@ -1080,68 +1080,80 @@ namespace UABEAvalonia.Android
     TextureFormat format,
     List<TextureFormat> attempts)
 {
-    string n = format
-        .ToString()
-        .ToUpperInvariant();
+    string n =
+        format.ToString()
+              .ToUpperInvariant();
 
-    // =========================================================
+    // ============================================================
     // ETC / ETC2
-    // =========================================================
+    // ============================================================
     //
-    // JANGAN mencampurkan ETC2_RGBA8 dengan ETC_RGB4.
+    // PENTING:
     //
-    // ETC2_RGBA8:
-    //   4x4 block = 16 bytes
+    // ETC2_RGBA8 TIDAK boleh fallback ke ETC_RGB4.
     //
-    // ETC_RGB4:
-    //   4x4 block = 8 bytes
+    // ETC2_RGBA8 = 16 bytes per 4x4 block
+    // ETC_RGB4   =  8 bytes per 4x4 block
     //
-    // Jadi fallback berdasarkan ukuran buffer dapat menyebabkan
-    // hanya setengah data texture yang dibaca.
+    // Kalau ETC2_RGBA8 dipaksa menjadi ETC_RGB4,
+    // data texture akan terpotong menjadi setengah ukuran
+    // dan hasil preview dapat menjadi pixelated / rusak.
     //
+    // Jadi untuk ETC2_RGBA8 kita tidak membuat fallback
+    // ke format RGB-only.
+    // ============================================================
 
     if (n.Contains("ETC2_RGBA8") ||
         n.Contains("ETC2A8"))
     {
-        // ETC2_RGBA8 harus tetap ETC2_RGBA8.
-        // Tidak ada fallback ke ETC_RGB4.
+        // Jangan tambahkan ETC_RGB4.
+        // Jangan tambahkan ETC2_RGB.
+        //
+        // Primary ETC2_RGBA8 harus dipertahankan.
         return;
     }
 
+    // ETC2 RGB memang kompatibel dengan ETC RGB4.
     if (n.Contains("ETC2_RGB"))
     {
-        // ETC2 RGB harus tetap ETC2 RGB.
-        // Jangan fallback ke ETC_RGB4.
+        TryAddFormat(
+            attempts,
+            "ETC_RGB4");
+
         return;
     }
 
     if (n.Contains("ETC_RGB4"))
     {
-        // ETC RGB4 harus tetap ETC RGB4.
-        // Jangan fallback ke ETC2 RGB.
+        TryAddFormat(
+            attempts,
+            "ETC2_RGB");
+
         return;
     }
 
-    // ETC2 RGBA1
+    // ETC2 RGBA1 mempunyai format alpha 1-bit.
+    // Jangan diturunkan menjadi ETC RGB biasa.
     if (n.Contains("ETC2_RGBA1"))
     {
-        // Pertahankan format ETC2 RGBA1.
         return;
     }
 
-    // =========================================================
+    // ============================================================
     // ASTC
-    // =========================================================
+    // ============================================================
     //
-    // ASTC hanya boleh fallback ke block size ASTC lain.
-    // Jangan pernah dicampur dengan ETC / ETC2.
-    //
+    // ASTC hanya boleh fallback ke sibling ASTC.
+    // Jangan mencampurkan ASTC dengan ETC / ETC2.
+    // ============================================================
 
     if (n.Contains("ASTC"))
     {
         AddAstcSiblingFallbacks(
             format,
             attempts);
+
+        return;
     }
 }
 
