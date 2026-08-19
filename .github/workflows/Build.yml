@@ -1,7 +1,7 @@
 name: Build UABEA Android Native APK
 
 on:
-  workflow_dispatch: # Membuat tombol manual di GitHub untuk memulai build
+  workflow_dispatch: # Membuat tombol manual di tab Actions GitHub untuk memulai build
 
 jobs:
   build:
@@ -14,7 +14,7 @@ jobs:
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '8.0.x' # Memasang .NET modern yang mendukung Avalonia Android
+        dotnet-version: '8.0.x'
 
     - name: Setup Java JDK
       uses: actions/setup-java@v4
@@ -22,21 +22,20 @@ jobs:
         distribution: 'microsoft'
         java-version: '17'
 
-    - name: Install Android SDK Workloads
+    - name: Install Android Workload
       run: |
         dotnet workload install android
-        dotnet workload install avalonia
 
     - name: Restore Dependencies
-      run: dotnet restore
+      run: dotnet restore AVALONIAAndroid/AVALONIANdroid.csproj
 
     - name: Build Android Project
       run: |
-        # Perintah untuk mengompilasi proyek spesifik Android ke mode Release
-        dotnet publish -c Release -r android-arm64 --no-self-contained
+        dotnet publish AVALONIAAndroid/AVALONIANdroid.csproj -c Release -r android-arm64 --no-self-contained /p:AndroidPackageFormat=apk /p:AndroidBuildApplicationPackage=true
 
     - name: Upload APK Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: UABEA-Android-APK
+        name: UABEA-Android-Native-APK
         path: '**/bin/Release/**/publish/*.apk'
+        if-no-files-found: error
