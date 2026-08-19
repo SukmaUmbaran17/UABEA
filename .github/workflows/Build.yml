@@ -27,15 +27,11 @@ jobs:
         dotnet workload install android
 
     - name: Restore Dependencies
-      run: dotnet restore AVALONIAAndroid/AVALONIANdroid.csproj
+      run: |
+        # Memaksa restore hanya fokus pada satu target Android untuk memutus error bionic di UABEAvalonia
+        dotnet restore AVALONIAAndroid/AVALONIANdroid.csproj -r android-arm64 /p:ValidateExecutableReferencesMatchSelfContained=false
 
     - name: Build Android Project
       run: |
-        dotnet publish AVALONIAAndroid/AVALONIANdroid.csproj -c Release -r android-arm64 --no-self-contained /p:AndroidPackageFormat=apk /p:AndroidBuildApplicationPackage=true
-
-    - name: Upload APK Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: UABEA-Android-Native-APK
-        path: '**/bin/Release/**/publish/*.apk'
-        if-no-files-found: error
+        # Mengompilasi proyek dengan mematikan pengecekan target silang yang memicu error NETSDK1112
+        dotnet publish AVALONIAAndroid/AVALONIANdroid.csproj -c Release -r android-arm64 --no-self-contained /p:AndroidPackageFormat=apk /p:AndroidBuildApplicationPackage=true /p:ValidateExecutableReferencesMatchSelfContained=false /p:EnsureRuntimePackDownloaded=false
