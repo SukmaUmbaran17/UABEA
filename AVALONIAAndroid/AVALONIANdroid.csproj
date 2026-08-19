@@ -10,7 +10,7 @@
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     
-    <!-- Baris sakti untuk mengatasi error NETSDK1151 -->
+    <!-- Mengatasi error NETSDK1151 -->
     <ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
   </PropertyGroup>
 
@@ -21,4 +21,12 @@
   <ItemGroup>
     <ProjectReference Include="..\UABEAvalonia\UABEAvalonia.csproj" />
   </ItemGroup>
+
+  <!-- Blok kode sakti untuk menghapus error paket linux-bionic-arm64 -->
+  <Target Name="_RemoveLinuxFrameworkReferences" AfterTargets="ProcessFrameworkReferences">
+    <ItemGroup>
+      <_ProblematicRIDs Include="linux-bionic-arm;linux-bionic-arm64;linux-bionic-x86" />
+      
+    </ItemGroup>
+  </Target>
 </Project>
