@@ -1077,88 +1077,73 @@ namespace UABEAvalonia.Android
         // ============================================================
 
         private void AddCompatibleFallbacks(
-            TextureFormat format,
-            List<TextureFormat> attempts)
-        {
-            string n =
-                format.ToString()
-                    .ToUpperInvariant();
+    TextureFormat format,
+    List<TextureFormat> attempts)
+{
+    string n = format
+        .ToString()
+        .ToUpperInvariant();
 
-            // ETC / ETC2 family.
-            //
-            // Ini penting untuk kasus seperti:
-            //
-            // input 32768
-            // required 65536
-            //
-            // Decoder ETC2_RGBA8 membutuhkan 16 byte/block,
-            // sedangkan ETC RGB membutuhkan 8 byte/block.
-            if (n.Contains("ETC2_RGBA8") ||
-                n.Contains("ETC2A8"))
-            {
-                TryAddFormat(
-                    attempts,
-                    "ETC2_RGB");
+    // =========================================================
+    // ETC / ETC2
+    // =========================================================
+    //
+    // JANGAN mencampurkan ETC2_RGBA8 dengan ETC_RGB4.
+    //
+    // ETC2_RGBA8:
+    //   4x4 block = 16 bytes
+    //
+    // ETC_RGB4:
+    //   4x4 block = 8 bytes
+    //
+    // Jadi fallback berdasarkan ukuran buffer dapat menyebabkan
+    // hanya setengah data texture yang dibaca.
+    //
 
-                TryAddFormat(
-                    attempts,
-                    "ETC_RGB4");
-            }
+    if (n.Contains("ETC2_RGBA8") ||
+        n.Contains("ETC2A8"))
+    {
+        // ETC2_RGBA8 harus tetap ETC2_RGBA8.
+        // Tidak ada fallback ke ETC_RGB4.
+        return;
+    }
 
-            if (n.Contains("ETC2_RGB"))
-            {
-                TryAddFormat(
-                    attempts,
-                    "ETC_RGB4");
-            }
+    if (n.Contains("ETC2_RGB"))
+    {
+        // ETC2 RGB harus tetap ETC2 RGB.
+        // Jangan fallback ke ETC_RGB4.
+        return;
+    }
 
-            if (n.Contains("ETC_RGB4"))
-            {
-                TryAddFormat(
-                    attempts,
-                    "ETC2_RGB");
-            }
+    if (n.Contains("ETC_RGB4"))
+    {
+        // ETC RGB4 harus tetap ETC RGB4.
+        // Jangan fallback ke ETC2 RGB.
+        return;
+    }
 
-            // ETC2 RGBA1.
-            if (n.Contains("ETC2_RGBA1"))
-            {
-                TryAddFormat(
-                    attempts,
-                    "ETC2_RGB");
-            }
+    // ETC2 RGBA1
+    if (n.Contains("ETC2_RGBA1"))
+    {
+        // Pertahankan format ETC2 RGBA1.
+        return;
+    }
 
-            // ASTC: fallback hanya antar format ASTC.
-            // Tidak mencampurkan ASTC dengan ETC.
-            if (n.Contains("ASTC"))
-            {
-                AddAstcSiblingFallbacks(
-                    format,
-                    attempts);
-            }
+    // =========================================================
+    // ASTC
+    // =========================================================
+    //
+    // ASTC hanya boleh fallback ke block size ASTC lain.
+    // Jangan pernah dicampur dengan ETC / ETC2.
+    //
 
-            // DXT / BC family.
-            if (n.Contains("DXT1") ||
-                n.Contains("BC1"))
-            {
-                TryAddFormat(
-                    attempts,
-                    "BC1");
-                TryAddFormat(
-                    attempts,
-                    "DXT1");
-            }
-
-            if (n.Contains("DXT5") ||
-                n.Contains("BC3"))
-            {
-                TryAddFormat(
-                    attempts,
-                    "BC3");
-                TryAddFormat(
-                    attempts,
-                    "DXT5");
-            }
-        }
+    if (n.Contains("ASTC"))
+    {
+        AddAstcSiblingFallbacks(
+            format,
+            attempts);
+    }
+}
 
         private void TryAddFormat(
             List<TextureFormat> attempts,
