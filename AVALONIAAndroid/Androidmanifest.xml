@@ -1,27 +1,17 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0-android</TargetFramework>
-    <SupportedOSPlatformVersion>21.0</SupportedOSPlatformVersion>
-    <OutputType>Exe</OutputType>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <ApplicationId>com.uabea.nativeandroid</ApplicationId>
-    <ApplicationVersion>1</ApplicationVersion>
-    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
-    <AndroidPackageFormat>apk</AndroidPackageFormat>
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://android.com" 
+          package="com.uabea.nativeandroid" 
+          android:versionCode="1" 
+          android:versionName="1.0">
+          
+    <uses-sdk android:minSdkVersion="21" android:targetSdkVersion="34" />
     
-    <!-- Memaksa .NET melacak jalur absolut Manifest secara fisik tanpa meleset -->
-    <AndroidManifest>$(MSBuildProjectDirectory)\AndroidManifest.xml</AndroidManifest>
-    
-    <!-- Mengatasi konflik tipe proyek PC vs Android -->
-    <ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
-  </PropertyGroup>
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
+    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
 
-  <ItemGroup>
-    <PackageReference Include="Avalonia.Android" Version="11.0.10" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\UABEAvalonia\UABEAvalonia.csproj" />
-  </ItemGroup>
-</Project>
+    <application android:allowBackup="true" 
+                 android:label="UABEA Android Native"
+                 android:requestLegacyExternalStorage="true">
+    </application>
+</manifest>
