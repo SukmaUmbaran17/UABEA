@@ -10,9 +10,6 @@
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     
-    <!-- Memaksa .NET melacak jalur absolut Manifest secara fisik tanpa meleset -->
-    <AndroidManifest>$(MSBuildProjectDirectory)\AndroidManifest.xml</AndroidManifest>
-    
     <!-- Mengatasi konflik tipe proyek PC vs Android -->
     <ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
   </PropertyGroup>
