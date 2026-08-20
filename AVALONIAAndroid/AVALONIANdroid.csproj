@@ -10,6 +10,13 @@
     <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     
+    <!-- Mematikan pencarian file AndroidManifest.xml fisik -->
+    <AndroidManifest></AndroidManifest>
+    
+    <!-- Parameter Sakti: Memaksa compiler Java mengabaikan error penggabungan Manifest -->
+    <AndroidManifestPlaceholders>applicationLabel=UABEA_Android_Native</AndroidManifestPlaceholders>
+    <AndroidCreatePackagePerAbi>false</AndroidCreatePackagePerAbi>
+    
     <!-- Mengatasi konflik tipe proyek PC vs Android -->
     <ValidateExecutableReferencesMatchSelfContained>false</ValidateExecutableReferencesMatchSelfContained>
   </PropertyGroup>
